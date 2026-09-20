@@ -1,0 +1,194 @@
+// @vitest-environment happy-dom
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { LogEntry, PlayerView, RoomView } from '@trio/shared';
+import { hand, playerView, roomView } from '../fixtures';
+import { Table } from './Table';
+
+afterEach(cleanup);
+
+function show(view: PlayerView = playerView(), room: RoomView = roomView()) {
+  const handlers = {
+    onAction: vi.fn(),
+    onKick: vi.fn(),
+    onSubstitute: vi.fn(),
+    onBackToLobby: vi.fn(),
+    onLeave: vi.fn(),
+  };
+  const utils = render(<Table room={room} view={view} {...handlers} received={null} />);
+  return { ...handlers, ...utils };
+}
+
+const rowOf = (name: string) => {
+  const row = screen.getByText(name).closest('.player');
+  if (!row) throw new Error(`Sin fila para ${name}`);
+  return within(row as HTMLElement);
+};
+
+describe('mesa', () => {
+  it('enseña a los demás jugadores, el centro y tu mano', () => {
+    show();
+    expect(screen.getByText('Bea')).toBeTruthy();
+    expect(screen.getByText('Carlos')).toBeTruthy();
+    expect(screen.queryByText('Ana')).toBeNull(); // tú apareces como «Tu mano»
+    expect(screen.getByLabelText('Hueco 1, carta boca abajo')).toBeTruthy();
+    expect(screen.getByLabelText('Hueco 3, vacío')).toBeTruthy();
+    expect(screen.getByText('Tu mano')).toBeTruthy();
+  });
+
+  it('no pinta el valor de ninguna carta que no esté boca arriba', () => {
+    const { container } = show(
+      playerView({
+        center: [{ state: 'down' }, { state: 'up', value: 9 }],
+        players: [
+          { id: 'p0', name: 'Ana', team: null, hand: hand([null]), trios: [] },
+          { id: 'p1', name: 'Bea', team: null, hand: hand([null, 3]), trios: [] },
+        ],
+        myHand: [{ value: 2, faceUp: false }],
+      }),
+    );
+    const values = [...container.querySelectorAll('.card__value')]
+      .map((node) => node.textContent)
+      .filter((text) => text !== '');
+    // El 9 del centro, el 3 de Bea (boca arriba) y tu propia carta. Nada más.
+    expect(values.sort()).toEqual(['2', '3', '9']);
+  });
+
+  it('voltear un hueco del centro manda la acción con su número', () => {
+    const { onAction } = show();
+    fireEvent.click(screen.getByLabelText('Hueco 2, carta boca abajo'));
+    expect(onAction).toHaveBeenCalledWith({ type: 'REVEAL_CENTER', slot: 1 });
+  });
+
+  it('se puede pedir la más baja o la más alta de cada jugador, y también las tuyas', () => {
+    const { onAction } = show();
+    fireEvent.click(rowOf('Bea').getByRole('button', { name: /más baja/ }));
+    expect(onAction).toHaveBeenCalledWith({ type: 'REVEAL_PLAYER', targetId: 'p1', end: 'lowest' });
+
+    const mine = within(screen.getByLabelText('Tu mano'));
+    fireEvent.click(mine.getByRole('button', { name: /más alta/ }));
+    expect(onAction).toHaveBeenCalledWith({ type: 'REVEAL_PLAYER', targetId: 'p0', end: 'highest' });
+  });
+
+  it('sin turno no se puede tocar nada de la mesa', () => {
+    const { container } = show(
+      playerView({ currentPlayerId: 'p1', legal: { reveal: null, confirm: false, swap: null } }),
+    );
+    expect(screen.queryByRole('button', { name: /más baja/ })).toBeNull();
+    expect(container.querySelectorAll('.card.is-choosable')).toHaveLength(0);
+    expect(screen.getByText('Turno de Bea')).toBeTruthy();
+  });
+
+  it('«continuar» solo lo ve quien tiene que continuar', () => {
+    const settled = playerView({
+      phase: 'awaitingReturn',
+      outcome: 'mismatch',
+      currentPlayerId: 'p1',
+      legal: { reveal: null, confirm: false, swap: null },
+    });
+    show(settled);
+    expect(screen.queryByRole('button', { name: 'Continuar' })).toBeNull();
+    expect(screen.getByText(/Bea decide cuándo continuar/)).toBeTruthy();
+    cleanup();
+
+    const mine = playerView({
+      phase: 'awaitingReturn',
+      outcome: 'mismatch',
+      legal: { reveal: null, confirm: true, swap: null },
+    });
+    const { onAction } = show(mine);
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(onAction).toHaveBeenCalledWith({ type: 'CONFIRM_RETURN' });
+  });
+
+  it('avisa de la cuenta atrás del servidor cuando queda poco', () => {
+    const settled = playerView({ phase: 'awaitingReturn', outcome: 'mismatch', currentPlayerId: 'p1' });
+    show(settled, roomView({ autoActionAt: Date.now() + 10_000 }));
+    expect(screen.getByText(/El servidor continuará solo/)).toBeTruthy();
+  });
+
+  it('el registro no enseña el valor de lo que ya volvió boca abajo', () => {
+    const log: LogEntry[] = [
+      { type: 'reveal', by: 'p1', from: { kind: 'center', slot: 0 } },
+      { type: 'mismatch', by: 'p1' },
+      { type: 'return', by: 'p1' },
+    ];
+    show(playerView({ log }));
+    expect(screen.getByText('Bea volteó el hueco 1.')).toBeTruthy();
+    expect(screen.getByText('No coinciden.')).toBeTruthy();
+  });
+
+  it('al terminar se ve el ganador y el anfitrión vuelve a la sala', () => {
+    const { onBackToLobby } = show(
+      playerView({
+        phase: 'finished',
+        winner: { playerIds: ['p1'], team: null, reason: 'sevens' },
+        legal: { reveal: null, confirm: false, swap: null },
+      }),
+    );
+    expect(screen.getByText('¡Gana Bea con el trío de sietes!')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Volver a la sala' }));
+    expect(onBackToLobby).toHaveBeenCalled();
+  });
+
+  it('quien no es anfitrión espera a que vuelva a la sala', () => {
+    show(
+      playerView({ phase: 'finished', winner: { playerIds: ['p1'], team: null, reason: 'trios' } }),
+      roomView({ hostId: 'p1' }),
+    );
+    expect(screen.getByText(/Esperando a que Bea/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Volver a la sala' })).toBeNull();
+  });
+
+  it('se ve quién es un bot y a quién le está jugando uno', () => {
+    const room = roomView({
+      members: roomView().members.map((m) =>
+        m.id === 'p1'
+          ? { ...m, bot: true }
+          : m.id === 'p2'
+            ? { ...m, connected: false, playedByBot: true }
+            : m,
+      ),
+    });
+    show(playerView(), room);
+    expect(rowOf('Bea').getByText('bot')).toBeTruthy();
+    expect(rowOf('Carlos').getByText('juega un bot')).toBeTruthy();
+    // «Sin conexión» sobra si ya hay un bot jugando por él.
+    expect(rowOf('Carlos').queryByText('sin conexión')).toBeNull();
+  });
+
+  it('el anfitrión mete un bot por quien se ha caído, y solo por ese', () => {
+    const dropped = roomView({
+      members: roomView().members.map((m) =>
+        m.id === 'p1' ? { ...m, connected: false } : m.id === 'p2' ? { ...m, bot: true } : m,
+      ),
+    });
+    const { onSubstitute } = show(playerView(), dropped);
+    expect(screen.getAllByRole('button', { name: 'Que juegue un bot' })).toHaveLength(1);
+    fireEvent.click(rowOf('Bea').getByRole('button', { name: 'Que juegue un bot' }));
+    expect(onSubstitute).toHaveBeenCalledWith('p1');
+  });
+
+  it('quien no es anfitrión no mete bots', () => {
+    const dropped = roomView({
+      hostId: 'p1',
+      members: roomView().members.map((m) => (m.id === 'p1' ? { ...m, connected: false } : m)),
+    });
+    show(playerView(), dropped);
+    expect(screen.queryByRole('button', { name: 'Que juegue un bot' })).toBeNull();
+  });
+
+  it('solo el anfitrión puede expulsar, y solo a quien se ha caído', () => {
+    const connected = roomView();
+    show(playerView(), connected);
+    expect(screen.queryByRole('button', { name: 'Expulsar' })).toBeNull();
+    cleanup();
+
+    const dropped = roomView({
+      members: roomView().members.map((m) => (m.id === 'p1' ? { ...m, connected: false } : m)),
+    });
+    show(playerView(), dropped);
+    expect(rowOf('Bea').getByRole('button', { name: 'Expulsar' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Expulsar' })).toHaveLength(1);
+  });
+});

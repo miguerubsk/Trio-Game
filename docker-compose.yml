@@ -1,0 +1,42 @@
+services:
+  trio:
+    # Built from the code in this folder. To use the published image instead:
+    #   docker compose pull trio && docker compose up -d --no-build
+    build: .
+    image: miguerubsk/trio-game:latest
+    restart: unless-stopped
+    init: true
+    environment:
+      PORT: 3000
+    ports:
+      # The left-hand number is the one you open in the browser. Change it if
+      # you already have something there; with a tunnel you can drop it.
+      - '3060:3000'
+
+  # Quick tunnel, no Cloudflare account needed: it prints a random
+  # https://….trycloudflare.com address in its logs, and it changes on restart.
+  #   docker compose --profile quick-tunnel up -d
+  #   docker compose logs quick-tunnel | grep trycloudflare
+  quick-tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ['quick-tunnel']
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://trio:3000
+    depends_on:
+      - trio
+
+  # Named tunnel, fixed address. Needs a token from the Cloudflare Zero Trust
+  # dashboard, in a .env file next to this one:
+  #   TUNNEL_TOKEN=ey...
+  #   docker compose --profile tunnel up -d
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ['tunnel']
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      # Empty on purpose when this profile is unused, so every other compose
+      # command works without a .env file.
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      - trio

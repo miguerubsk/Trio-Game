@@ -1,0 +1,178 @@
+name: Publish
+
+# Every push to master publishes the image as `master` and with the commit sha.
+# Pushing a v* tag publishes `latest` and the version too, and creates the
+# GitHub release with the signed images.
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  IMAGE: miguerubsk/trio-game
+  PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  image:
+    needs: checks
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the version
+        id: version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in package.json"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # QEMU so the arm layers can be built on an amd64 runner. Only the last
+      # layer is emulated: everything else compiles natively (see Dockerfile).
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=master,enable=${{ github.ref == 'refs/heads/master' }}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # No provenance manifests: the index keeps one entry per platform and
+          # nothing else, which is what `docker save` expects.
+          provenance: false
+
+  release:
+    needs: image
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      # Full history so the tag signature can be checked.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Import the signing key
+        id: key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -p "$GNUPGHOME"
+          chmod 700 "$GNUPGHOME"
+          printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --quiet --import
+          key="$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')"
+          # Trust our own key, or verifying warns that it doesn't know it.
+          printf '%s:6:\n' "$key" | gpg --batch --import-ownertrust
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
+      # The tag has to be signed with that same key: a release exists because
+      # its owner tagged it, not because someone pushed something.
+      - name: Check the tag signature
+        run: |
+          if ! git verify-tag "$GITHUB_REF_NAME"; then
+            echo "::error::Tag $GITHUB_REF_NAME is not signed with the project key"
+            exit 1
+          fi
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build the assets
+        env:
+          VERSION: ${{ needs.image.outputs.version }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          bash scripts/release-assets.sh "$VERSION" "$IMAGE@$DIGEST" linux/amd64 linux/arm64 linux/arm/v7
+
+      - name: Sign the checksums
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          KEY: ${{ steps.key.outputs.key }}
+        run: |
+          cd dist-release
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+              --local-user "$KEY" --armor --detach-sign --output SHA512SUMS.asc SHA512SUMS
+          gpg --armor --export "$KEY" > trio-game-public-key.asc
+          gpg --verify SHA512SUMS.asc SHA512SUMS
+
+      - name: Write the notes
+        env:
+          VERSION: ${{ needs.image.outputs.version }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+          KEY: ${{ steps.key.outputs.key }}
+        run: |
+          cat > notes.md <<TEXT
+          ## Docker
+
+              docker pull $IMAGE:$VERSION
+
+          Built for \`linux/amd64\`, \`linux/arm64\` and \`linux/arm/v7\`. Index digest: \`$DIGEST\`.
+
+          Without a registry, using the image attached here:
+
+              docker load < trio-game-$VERSION-linux-amd64.tar.gz
+
+          ## Without Docker
+
+          \`trio-game-$VERSION-node.tar.gz\` carries the server and the client already built. With Node 20:
+
+              tar -xzf trio-game-$VERSION-node.tar.gz && cd trio-game-$VERSION
+              PORT=3060 node packages/server/dist/index.js
+
+          ## Checking what you downloaded
+
+              gpg --import trio-game-public-key.asc
+              gpg --verify SHA512SUMS.asc SHA512SUMS
+              sha512sum -c SHA512SUMS
+
+          Signed with key \`$KEY\`, the same one that signs the commits in this repository.
+          TEXT
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist-release/* \
+            --title "Trio $GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            --generate-notes \
+            --verify-tag
