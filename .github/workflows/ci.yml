@@ -2,9 +2,11 @@ name: CI
 
 on:
   # On master and on tags the publish workflow calls this one, so the same
-  # checks don't run twice.
+  # checks don't run twice. A push filtered only by branches still fires on
+  # tags, hence the tags-ignore.
   push:
     branches-ignore: [master]
+    tags-ignore: ['**']
   pull_request:
   workflow_call:
 
