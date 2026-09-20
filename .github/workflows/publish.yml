@@ -106,6 +106,9 @@ jobs:
       # its owner tagged it, not because someone pushed something.
       - name: Check the tag signature
         run: |
+          # actions/checkout leaves the tag as a plain ref pointing at the
+          # commit, so the signed tag object has to be fetched again.
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
           if ! git verify-tag "$GITHUB_REF_NAME"; then
             echo "::error::Tag $GITHUB_REF_NAME is not signed with the project key"
             exit 1
