@@ -14,6 +14,8 @@ interface Props {
   target?: number;
   /** Cómo acabó la jugada para cada carta de su mano. */
   markAt: (index: number) => CardMark | null;
+  /** En qué orden se volteó cada carta suya este turno. */
+  orderAt: (index: number) => number;
   /** null si ahora mismo no se le pueden pedir cartas. */
   onAsk: ((end: End) => void) | null;
   onKick: (() => void) | null;
@@ -28,6 +30,7 @@ export function PlayerRow({
   isPartner,
   target,
   markAt,
+  orderAt,
   onAsk,
   onKick,
   onSubstitute,
@@ -77,6 +80,8 @@ export function PlayerRow({
               value={slot.faceUp ? slot.value : null}
               exposed={slot.faceUp}
               mark={markAt(i)}
+              index={i}
+              order={orderAt(i)}
               size="sm"
               label={`Carta ${i + 1} de ${player.name}`}
             />

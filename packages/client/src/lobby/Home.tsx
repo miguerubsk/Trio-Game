@@ -42,9 +42,9 @@ export function Home({ initialCode, onCreate, onJoin }: Props) {
       <div className="home__hero">
         {/* Un trío de treses: decoración, el nombre ya lo dice todo. */}
         <div className="fan" aria-hidden="true">
-          <Card value={3} size="xl" />
-          <Card value={3} size="xl" />
-          <Card value={3} size="xl" />
+          <Card value={3} size="xl" index={0} />
+          <Card value={3} size="xl" index={1} />
+          <Card value={3} size="xl" index={2} />
         </div>
         <h1 className="home__title">Trio</h1>
         <p className="home__claim">Juego de memoria para 3 a 6 personas. Cada uno desde su móvil.</p>

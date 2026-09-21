@@ -44,16 +44,23 @@ export function StatusBar({ view, names, autoActionAt, onConfirm }: Props) {
           {[0, 1, 2].map((i) => {
             const card = view.revealed[i];
             return card ? (
-              <Card key={i} value={card.value} mark={trailMark(view, i)} size="xs" />
+              <Card key={i} value={card.value} mark={trailMark(view, i)} order={i} size="xs" />
             ) : (
               <EmptySlot key={i} size="xs" />
             );
           })}
         </div>
       )}
+      {/* La `key` hace que el texto se cambie con un fundido en vez de saltar. */}
       <div className="status__text">
-        <p className="status__main">{status.main}</p>
-        {status.hint && <p className="status__hint">{status.hint}</p>}
+        <p className="status__main" key={status.main}>
+          {status.main}
+        </p>
+        {status.hint && (
+          <p className="status__hint" key={status.hint}>
+            {status.hint}
+          </p>
+        )}
         {countdown && <p className="status__countdown">{countdown}</p>}
       </div>
       {view.legal.confirm && (

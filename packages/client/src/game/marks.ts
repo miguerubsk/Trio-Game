@@ -1,5 +1,11 @@
-import type { PlayerId, PlayerView, RevealFrom } from '@trio/shared';
+import { useEffect, useRef } from 'react';
+import type { PlayerId, PlayerView, RevealFrom, RevealedView } from '@trio/shared';
 import type { CardMark } from '../ui/Card';
+
+const samePlace = (a: RevealFrom, b: RevealFrom): boolean =>
+  a.kind === 'center' && b.kind === 'center'
+    ? a.slot === b.slot
+    : a.kind === 'hand' && b.kind === 'hand' && a.playerId === b.playerId && a.index === b.index;
 
 /**
  * Con la jugada ya resuelta y las cartas aún boca arriba, qué le toca a cada
@@ -25,4 +31,18 @@ export function trailMark(view: PlayerView, position: number): CardMark | null {
   if (view.phase !== 'awaitingReturn' || view.outcome === null) return null;
   if (view.outcome === 'trio') return 'trio';
   return position === view.revealed.length - 1 ? 'miss' : null;
+}
+
+/**
+ * En qué orden se volteó cada carta este turno, para que vuelvan boca abajo en
+ * ese mismo orden. Cuando la jugada se cierra, el servidor ya no manda la
+ * lista, así que se guarda la última: sin ella todas se girarían a la vez.
+ */
+export function useRevealOrder(view: PlayerView): (from: RevealFrom) => number {
+  const last = useRef<RevealedView[]>([]);
+  useEffect(() => {
+    if (view.revealed.length > 0) last.current = view.revealed;
+  }, [view.revealed]);
+  const list = view.revealed.length > 0 ? view.revealed : last.current;
+  return (from) => Math.max(0, list.findIndex((r) => samePlace(r.from, from)));
 }

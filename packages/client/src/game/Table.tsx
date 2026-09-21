@@ -6,7 +6,7 @@ import { Avatar, Logo } from '../ui/Icons';
 import { useWide } from '../ui/useWide';
 import { Center } from './Center';
 import { LogSheet } from './LogSheet';
-import { centerMark, handMark } from './marks';
+import { centerMark, handMark, useRevealOrder } from './marks';
 import { MyHand } from './MyHand';
 import { PlayerRow } from './PlayerRow';
 import { StatusBar } from './StatusBar';
@@ -44,6 +44,7 @@ export function Table({
   const myTeam = view.players.find((p) => p.id === view.me)?.team ?? null;
   const myTurn = view.currentPlayerId === view.me && view.phase === 'awaitingReveal';
   const wide = useWide();
+  const orderOf = useRevealOrder(view);
   // Por equipos los tríos cuentan por pareja: la meta se ve en el marcador.
   const target = view.mode === 'teams' ? undefined : view.targetTrios;
 
@@ -119,6 +120,7 @@ export function Table({
             isPartner={myTeam !== null && player.team === myTeam}
             target={target}
             markAt={(index) => handMark(view, player.id, index)}
+            orderAt={(index) => orderOf({ kind: 'hand', playerId: player.id, index })}
             onAsk={askTo(player.id)}
             onKick={kickHandler(player.id, player.name)}
             onSubstitute={substituteHandler(player.id)}
@@ -130,6 +132,7 @@ export function Table({
         slots={view.center}
         choosable={reveal?.centerSlots ?? []}
         markAt={(slot) => centerMark(view, slot)}
+        orderAt={(slot) => orderOf({ kind: 'center', slot })}
         onReveal={(slot) => onAction({ type: 'REVEAL_CENTER', slot })}
       />
 
@@ -162,6 +165,7 @@ export function Table({
           view.legal.swap ? (handIndex) => onAction({ type: 'SWAP_CHOOSE', handIndex }) : null
         }
         received={received}
+        orderAt={(index) => orderOf({ kind: 'hand', playerId: view.me, index })}
       />
 
       {view.phase === 'finished' && (

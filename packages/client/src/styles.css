@@ -30,7 +30,14 @@
   --felt-text: #b9d3cf;
   --mark: #f4b942;
   --radius: 16px;
-  --flip: 420ms;
+  /* Tiempos y curvas, en un sitio: el volteo, lo que se retrasa cada carta al
+     volver (también en ui/Card.tsx), el reparto y las entradas de la interfaz. */
+  --flip: 460ms;
+  --stagger: 90ms;
+  --deal: 26ms;
+  --ui: 300ms;
+  --ease-card: cubic-bezier(0.22, 0.9, 0.28, 1.02);
+  --ease-ui: cubic-bezier(0.22, 0.85, 0.3, 1);
   --shadow: 0 1px 1px rgb(0 0 0 / 30%), 0 3px 8px rgb(0 0 0 / 28%);
   --display: 'Fredoka Variable', 'Fredoka', system-ui, sans-serif;
 }
@@ -126,6 +133,8 @@ h3 {
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   /* Un canto que se hunde al pulsar: se nota que es un botón. */
   box-shadow: 0 2px 0 var(--line);
   transition:
@@ -165,6 +174,9 @@ h3 {
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color 160ms ease;
 }
 
 .link:hover {
@@ -346,7 +358,53 @@ h3 {
   color: inherit;
   font: inherit;
   perspective: 600px;
-  transition: transform 150ms ease;
+  /* El aro siempre está: solo cambia de color, así no da un salto al aparecer. */
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition:
+    transform 160ms var(--ease-ui),
+    outline-color 220ms ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  /* Se reparten una tras otra, en el orden en que se sientan a la mesa. */
+  animation: deal 420ms var(--ease-ui) calc((var(--base, 0) + var(--i, 0)) * var(--deal)) backwards;
+}
+
+/* La sombra que deja en la mesa mientras está en el aire. */
+.card::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -5px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 45%);
+  filter: blur(4px);
+  opacity: 0;
+}
+
+.card.is-up::after {
+  animation: cast var(--flip) var(--ease-card);
+}
+
+.card__lift {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* El orden del reparto: primero los rivales, luego tu mano y al final el centro. */
+.table__players .card {
+  --base: 0;
+}
+
+.myhand .card {
+  --base: 5;
+}
+
+.center .card {
+  --base: 11;
 }
 
 .card--xs {
@@ -376,16 +434,23 @@ h3 {
   height: 100%;
   transform-style: preserve-3d;
   transform: rotateY(180deg);
-  transition: transform var(--flip) cubic-bezier(0.3, 0.7, 0.35, 1.1);
+  transition: transform var(--flip) var(--ease-card);
+  /* Vuelven a su sitio en el mismo orden en que se voltearon, no todas a la vez. */
+  transition-delay: calc(var(--order, 0) * var(--stagger));
 }
 
 .card.is-up .card__flip {
   transform: rotateY(0deg);
+  transition-delay: 0ms;
 }
 
-/* Al voltearse, la carta se levanta un poco de la mesa. */
-.card.is-up {
-  animation: lift var(--flip) ease;
+/* Voltear es levantarla de la mesa, girarla en el aire y posarla. */
+.card.is-up .card__lift {
+  animation: lift var(--flip) var(--ease-card);
+}
+
+.card.is-returning .card__lift {
+  animation: lift var(--flip) var(--ease-card) calc(var(--order, 0) * var(--stagger)) backwards;
 }
 
 .card__face {
@@ -487,52 +552,85 @@ h3 {
 .card--empty {
   border: 1.5px dashed rgb(255 255 255 / 17%);
   background: rgb(0 0 0 / 14%);
+  animation: swap-in var(--ui) var(--ease-ui);
 }
 
 .card.is-exposed {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-color: var(--accent);
 }
 
 .card.is-fresh {
-  outline: 2px solid var(--good);
-  outline-offset: 2px;
+  outline-color: var(--good);
 }
 
 .card.is-choosable {
   cursor: pointer;
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-color: var(--accent);
   transform: translateY(-2px);
 }
 
 .card.is-choosable:active {
-  transform: scale(0.95);
+  transform: translateY(0) scale(0.94);
+  transition-duration: 80ms;
 }
 
-/* Cómo acabó la jugada: el trío brilla, la que no casa tiembla. Después del volteo. */
+/* Cómo acabó la jugada: el trío brilla, la que no casa tiembla. Al posarse. */
 .card.is-trio {
-  outline: 2px solid var(--good);
-  outline-offset: 2px;
+  outline-color: var(--good);
   box-shadow: 0 0 18px 3px rgb(90 208 143 / 55%);
-  animation: pop 500ms 380ms ease both;
+}
+
+.card.is-trio .card__lift {
+  animation: pop 520ms calc(var(--flip) - 80ms) var(--ease-card) both;
 }
 
 .card.is-miss {
-  outline: 2px solid var(--warn);
-  outline-offset: 2px;
-  animation: shake 420ms 400ms ease both;
+  outline-color: var(--warn);
 }
 
+.card.is-miss .card__lift {
+  animation: shake 420ms calc(var(--flip) - 60ms) ease both;
+}
+
+/* Sale volando, gira en el aire y se posa con un punto de rebote. */
 @keyframes lift {
-  50% {
-    transform: translateY(-5px) scale(1.07);
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-14px) scale(1.09);
+  }
+  78% {
+    transform: translateY(1px) scale(0.99);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Su sombra en la mesa, que se abre y se cierra con el vuelo. */
+@keyframes cast {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  45% {
+    opacity: 0.5;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes deal {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.92);
   }
 }
 
 @keyframes pop {
   40% {
-    transform: scale(1.14);
+    transform: scale(1.12);
   }
 }
 
@@ -603,6 +701,10 @@ h3 {
   left: 7px;
   top: 2px;
   transform-origin: 50% 115%;
+}
+
+.trio-fan .card__lift,
+.fan .card__lift {
   animation: none;
 }
 
@@ -894,21 +996,29 @@ h3 {
   margin-bottom: 12px;
 }
 
-/* Tus cartas siempre las ves: se levantan cuando las ve todo el mundo. */
-.myhand .card.is-up {
+/* Tus cartas siempre las ves: vuelan cuando las ve todo el mundo, no al repartir. */
+.myhand .card.is-up .card__lift {
   animation: none;
 }
 
-.myhand .card.is-exposed {
-  animation: lift var(--flip) ease;
+.myhand .card.is-up::after {
+  animation: none;
 }
 
-.myhand .card.is-trio {
-  animation: pop 500ms 380ms ease both;
+.myhand .card.is-exposed .card__lift {
+  animation: lift var(--flip) var(--ease-card);
 }
 
-.myhand .card.is-miss {
-  animation: shake 420ms 400ms ease both;
+.myhand .card.is-exposed::after {
+  animation: cast var(--flip) var(--ease-card);
+}
+
+.myhand .card.is-trio .card__lift {
+  animation: pop 520ms calc(var(--flip) - 80ms) var(--ease-card) both;
+}
+
+.myhand .card.is-miss .card__lift {
+  animation: shake 420ms calc(var(--flip) - 60ms) ease both;
 }
 
 .log {
@@ -984,6 +1094,22 @@ h3 {
     transform: translateY(24px) scale(0.97);
     opacity: 0;
   }
+}
+
+.finished {
+  animation: veil-in 280ms ease;
+}
+
+.finished__fans .trio-fan {
+  animation: pop-in 420ms var(--ease-ui) 120ms backwards;
+}
+
+.finished__fans .trio-fan:nth-child(2) {
+  animation-delay: 210ms;
+}
+
+.finished__fans .trio-fan:nth-child(3) {
+  animation-delay: 300ms;
 }
 
 .finished__fans {
@@ -1226,7 +1352,6 @@ h3 {
   top: 0;
   left: calc(50% - var(--w) / 2);
   transform-origin: 50% 120%;
-  animation: none;
 }
 
 .fan .card:nth-child(1) {
@@ -1334,6 +1459,121 @@ h3 {
 
 .members li .link {
   margin-left: auto;
+}
+
+/* ── Cómo entra la interfaz ─────────────────────────────────────────────── */
+
+/*
+ * Todo lo que aparece, aparece moviéndose un poco: paneles y filas al entrar,
+ * el texto del turno al cambiar, y las fichas del código una detrás de otra.
+ * Son entradas de una sola vez; nada se queda en bucle.
+ */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes swap-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  60% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+
+@keyframes veil-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.panel,
+.player,
+.myhand,
+.center,
+.teams__team,
+.status,
+.log,
+.share,
+.home__hero,
+.swap,
+.picker__team {
+  animation: rise-in var(--ui) var(--ease-ui) backwards;
+}
+
+.table__players .player:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.table__players .player:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.table__players .player:nth-child(4) {
+  animation-delay: 180ms;
+}
+
+.table__players .player:nth-child(n + 5) {
+  animation-delay: 240ms;
+}
+
+.center {
+  animation-delay: 120ms;
+}
+
+.status {
+  animation-delay: 160ms;
+}
+
+.myhand {
+  animation-delay: 200ms;
+}
+
+.log {
+  animation-delay: 260ms;
+}
+
+.status__main,
+.status__hint,
+.myhand__received {
+  animation: swap-in 260ms var(--ease-ui);
+}
+
+.tag--turn,
+.tag--team {
+  animation: pop-in 320ms var(--ease-ui);
+}
+
+.members li {
+  animation: rise-in 280ms var(--ease-ui) backwards;
+}
+
+.banner,
+.notice {
+  animation: drop-in 320ms var(--ease-ui);
+}
+
+.tile {
+  animation: drop-in 460ms var(--ease-ui) calc(var(--i, 0) * 70ms) backwards;
 }
 
 /* ── Escritorio ─────────────────────────────────────────────────────────── */
@@ -1683,17 +1923,14 @@ h3 {
 @media (prefers-reduced-motion: reduce) {
   .card__flip {
     transition: none;
+    transition-delay: 0ms;
   }
 
-  .card,
-  .card.is-up,
-  .card.is-trio,
-  .card.is-miss,
-  .myhand .card.is-exposed,
-  .status.is-mine,
-  .progress__slot.is-won,
-  .finished__card {
-    animation: none;
+  /* Ni vuelos, ni rebotes, ni entradas: todo aparece ya puesto. */
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
   }
 
   .confetti {

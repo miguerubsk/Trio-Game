@@ -12,9 +12,11 @@ interface Props {
   onChoose?: ((handIndex: number) => void) | null;
   /** La que acaba de darte tu compañero, para reconocerla de un vistazo. */
   received?: Value | null;
+  /** En qué orden se volteó cada carta tuya este turno. */
+  orderAt: (index: number) => number;
 }
 
-export function MyHand({ view, onAsk, onChoose, received }: Props) {
+export function MyHand({ view, onAsk, onChoose, received, orderAt }: Props) {
   const me = view.players.find((p) => p.id === view.me);
   // Con cartas repetidas da igual cuál se marque: son la misma carta.
   const fresh = received == null ? -1 : view.myHand.findIndex((c) => c.value === received);
@@ -43,6 +45,8 @@ export function MyHand({ view, onAsk, onChoose, received }: Props) {
               exposed={card.faceUp}
               fresh={i === fresh}
               mark={handMark(view, view.me, i)}
+              index={i}
+              order={orderAt(i)}
               size="md"
               label={`Tu carta ${i + 1}`}
               onClick={onChoose ? () => onChoose(i) : undefined}

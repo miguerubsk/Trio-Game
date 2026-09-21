@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import {
   BOT_TAKEOVER_SECONDS,
   IDLE_SECONDS,
@@ -269,7 +269,7 @@ function ShareCode({ code }: { code: string }) {
         {/* El código se lee entero; las fichas son solo para verlo. */}
         <span className="visually-hidden">{code}</span>
         {[...code].map((letter, i) => (
-          <span className="tile" key={i} aria-hidden="true">
+          <span className="tile" key={i} style={{ '--i': i } as CSSProperties} aria-hidden="true">
             {letter}
           </span>
         ))}
