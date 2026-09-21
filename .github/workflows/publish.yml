@@ -18,11 +18,50 @@ env:
   PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
 
 jobs:
+  # On a tag nothing is built or published until the tag is proven to be signed
+  # with the project key: a release exists because its owner tagged it.
+  signature:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Import the project key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -p "$GNUPGHOME"
+          chmod 700 "$GNUPGHOME"
+          printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --quiet --import
+          key="$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')"
+          # Trust our own key, or verifying warns that it doesn't know it.
+          printf '%s:6:\n' "$key" | gpg --batch --import-ownertrust
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+
+      - name: Check the tag signature
+        run: |
+          # actions/checkout leaves the tag as a plain ref pointing at the
+          # commit, so the signed tag object has to be fetched again.
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          if ! git verify-tag "$GITHUB_REF_NAME"; then
+            echo "::error::Tag $GITHUB_REF_NAME is not signed with the project key"
+            exit 1
+          fi
+
   checks:
     uses: ./.github/workflows/ci.yml
 
   image:
-    needs: checks
+    needs: [checks, signature]
+    # On master the signature job is skipped, which is fine; on a tag it must
+    # have passed. Without this condition a skipped dependency skips the image.
+    if: >-
+      !cancelled()
+      && needs.checks.result == 'success'
+      && (needs.signature.result == 'success' || github.ref_type != 'tag')
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -82,10 +121,7 @@ jobs:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
-      # Full history so the tag signature can be checked.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Import the signing key
         id: key
@@ -101,18 +137,6 @@ jobs:
           printf '%s:6:\n' "$key" | gpg --batch --import-ownertrust
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
           echo "key=$key" >> "$GITHUB_OUTPUT"
-
-      # The tag has to be signed with that same key: a release exists because
-      # its owner tagged it, not because someone pushed something.
-      - name: Check the tag signature
-        run: |
-          # actions/checkout leaves the tag as a plain ref pointing at the
-          # commit, so the signed tag object has to be fetched again.
-          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
-          if ! git verify-tag "$GITHUB_REF_NAME"; then
-            echo "::error::Tag $GITHUB_REF_NAME is not signed with the project key"
-            exit 1
-          fi
 
       - uses: docker/login-action@v3
         with:
