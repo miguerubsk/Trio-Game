@@ -1,9 +1,12 @@
 import { useEffect, useMemo } from 'react';
 import type { Action, End, PlayerId, PlayerView, RoomView, Value } from '@trio/shared';
 import { winnerText, type Names } from '../text';
-import { Trios } from '../ui/Card';
+import { Progress, TrioFan, valueClass } from '../ui/Card';
+import { Avatar, Logo } from '../ui/Icons';
+import { useWide } from '../ui/useWide';
 import { Center } from './Center';
 import { LogSheet } from './LogSheet';
+import { centerMark, handMark } from './marks';
 import { MyHand } from './MyHand';
 import { PlayerRow } from './PlayerRow';
 import { StatusBar } from './StatusBar';
@@ -40,6 +43,9 @@ export function Table({
   const reveal = view.legal.reveal;
   const myTeam = view.players.find((p) => p.id === view.me)?.team ?? null;
   const myTurn = view.currentPlayerId === view.me && view.phase === 'awaitingReveal';
+  const wide = useWide();
+  // Por equipos los tríos cuentan por pareja: la meta se ve en el marcador.
+  const target = view.mode === 'teams' ? undefined : view.targetTrios;
 
   // Un aviso discreto al llegar el turno: se va a jugar mirando el móvil de reojo.
   useEffect(() => {
@@ -78,7 +84,9 @@ export function Table({
   return (
     <div className="table">
       <header className="table__head">
-        <span className="code-chip">Sala {room.code}</span>
+        <span className="brand">
+          <Logo /> Sala <span className="code-chip">{room.code}</span>
+        </span>
         <div className="table__actions">
           {isHost && view.phase !== 'finished' && (
             <button
@@ -109,6 +117,8 @@ export function Table({
             member={memberOf(player.id)}
             isCurrent={player.id === view.currentPlayerId}
             isPartner={myTeam !== null && player.team === myTeam}
+            target={target}
+            markAt={(index) => handMark(view, player.id, index)}
             onAsk={askTo(player.id)}
             onKick={kickHandler(player.id, player.name)}
             onSubstitute={substituteHandler(player.id)}
@@ -119,22 +129,31 @@ export function Table({
       <Center
         slots={view.center}
         choosable={reveal?.centerSlots ?? []}
+        markAt={(slot) => centerMark(view, slot)}
         onReveal={(slot) => onAction({ type: 'REVEAL_CENTER', slot })}
       />
 
-      {/* Al terminar manda el cartel del final: la barra sobraría debajo. */}
-      {view.phase !== 'finished' && (
-        <StatusBar
-          view={view}
-          names={names}
-          autoActionAt={room.autoActionAt}
-          onConfirm={() => onAction({ type: 'CONFIRM_RETURN' })}
-        />
-      )}
+      {/*
+        El turno y el registro: en escritorio forman el lateral; en el móvil el
+        lateral no existe y siguen en el orden de siempre (styles.css).
+      */}
+      <aside className="table__side">
+        {/* Al terminar manda el cartel del final: la barra sobraría debajo. */}
+        {view.phase !== 'finished' && (
+          <StatusBar
+            view={view}
+            names={names}
+            autoActionAt={room.autoActionAt}
+            onConfirm={() => onAction({ type: 'CONFIRM_RETURN' })}
+          />
+        )}
 
-      {view.phase === 'teamSwap' && (
-        <TeamSwap view={view} names={names} onPass={() => onAction({ type: 'SWAP_PASS' })} />
-      )}
+        {view.phase === 'teamSwap' && (
+          <TeamSwap view={view} names={names} onPass={() => onAction({ type: 'SWAP_PASS' })} />
+        )}
+
+        <LogSheet log={view.log} names={names} pinned={wide} />
+      </aside>
 
       <MyHand
         view={view}
@@ -144,8 +163,6 @@ export function Table({
         }
         received={received}
       />
-
-      <LogSheet log={view.log} names={names} />
 
       {view.phase === 'finished' && (
         <Finished
@@ -169,18 +186,31 @@ interface FinishedProps {
 }
 
 function Finished({ view, names, isHost, hostName, onBackToLobby }: FinishedProps) {
+  const winners = new Set(view.winner?.playerIds ?? []);
+  const won = view.players.filter((p) => winners.has(p.id)).flatMap((p) => p.trios);
+  const sevens = view.winner?.reason === 'sevens';
+
   return (
     <div className="finished" role="dialog" aria-modal="true" aria-label="Fin de la partida">
-      <div className="finished__card">
+      {view.winner && <Confetti />}
+      <div className={`finished__card${sevens ? ' is-sevens' : ''}`}>
+        {won.length > 0 && (
+          <div className="finished__fans">
+            {won.map((value, i) => (
+              <TrioFan key={`${value}-${i}`} value={value} />
+            ))}
+          </div>
+        )}
         <h2 className="finished__title">
           {view.winner ? winnerText(view.winner, names) : 'Partida terminada.'}
         </h2>
         <ul className="finished__scores">
           {scoreboard(view).map((line) => (
-            <li key={line.who}>
+            <li key={line.who} className={line.ids.some((id) => winners.has(id)) ? 'is-winner' : ''}>
+              {line.ids.length === 1 && <Avatar name={line.who} />}
               <span className="finished__who">{line.who}</span>
-              <Trios values={line.trios} />
-              <span className="muted">
+              <Progress values={line.trios} target={view.targetTrios} />
+              <span className="finished__count">
                 {line.trios.length} {line.trios.length === 1 ? 'trío' : 'tríos'}
               </span>
             </li>
@@ -198,13 +228,34 @@ function Finished({ view, names, isHost, hostName, onBackToLobby }: FinishedProp
   );
 }
 
+/** Una sola vez, al abrirse el cartel. Con «reducir movimiento» no sale. */
+const CONFETTI: Value[] = [1, 5, 8, 7, 11, 2, 9, 4, 12, 6, 10, 3, 7, 5];
+
+function Confetti() {
+  return (
+    <div className="confetti" aria-hidden="true">
+      {CONFETTI.map((value, i) => (
+        <i
+          key={i}
+          className={valueClass(value)}
+          style={{
+            left: `${6 + i * 6.5}%`,
+            animationDelay: `${(i % 5) * 0.12 + Math.floor(i / 5) * 0.2}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 /** El recuento final: por equipos si los hay, y si no, jugador a jugador. */
-function scoreboard(view: PlayerView): { who: string; trios: Value[] }[] {
+function scoreboard(view: PlayerView): { who: string; ids: PlayerId[]; trios: Value[] }[] {
   if (view.mode !== 'teams') {
-    return view.players.map((p) => ({ who: p.name, trios: p.trios }));
+    return view.players.map((p) => ({ who: p.name, ids: [p.id], trios: p.trios }));
   }
   return teamsOf(view).map(({ team, members }) => ({
     who: `Equipo ${team + 1}: ${members.map((m) => m.name).join(' y ')}`,
+    ids: members.map((m) => m.id),
     trios: members.flatMap((m) => m.trios),
   }));
 }

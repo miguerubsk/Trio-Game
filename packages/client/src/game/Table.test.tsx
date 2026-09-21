@@ -101,6 +101,92 @@ describe('mesa', () => {
     expect(onAction).toHaveBeenCalledWith({ type: 'CONFIRM_RETURN' });
   });
 
+  it('al cerrar un trío brillan sus tres cartas, estén donde estén, y la barra las enseña', () => {
+    const { container } = show(
+      playerView({
+        phase: 'awaitingReturn',
+        outcome: 'trio',
+        center: [{ state: 'up', value: 4 }, { state: 'up', value: 4 }, { state: 'empty' }],
+        players: [
+          { id: 'p0', name: 'Ana', team: null, hand: hand([null, null, null]), trios: [] },
+          { id: 'p1', name: 'Bea', team: null, hand: hand([4, null, null]), trios: [] },
+          { id: 'p2', name: 'Carlos', team: null, hand: hand([null, null, null]), trios: [] },
+        ],
+        revealed: [
+          { value: 4, from: { kind: 'center', slot: 0 } },
+          { value: 4, from: { kind: 'center', slot: 1 } },
+          { value: 4, from: { kind: 'hand', playerId: 'p1', index: 0 } },
+        ],
+        legal: { reveal: null, confirm: true, swap: null },
+      }),
+    );
+    expect(screen.getByLabelText('Hueco 1, carta 4, a la vista de todos, forma trío')).toBeTruthy();
+    expect(screen.getByLabelText('Hueco 2, carta 4, a la vista de todos, forma trío')).toBeTruthy();
+    expect(rowOf('Bea').getByLabelText('Carta 1 de Bea, carta 4, a la vista de todos, forma trío')).toBeTruthy();
+    expect(container.querySelectorAll('.status .trail .card.is-trio')).toHaveLength(3);
+    expect(screen.getByText('¡Trío de 4!')).toBeTruthy();
+  });
+
+  it('de un fallo solo se señala la carta que no casó', () => {
+    const { container } = show(
+      playerView({
+        phase: 'awaitingReturn',
+        outcome: 'mismatch',
+        center: [{ state: 'up', value: 9 }, { state: 'down' }, { state: 'empty' }],
+        players: [
+          { id: 'p0', name: 'Ana', team: null, hand: hand([null, null, null]), trios: [] },
+          { id: 'p1', name: 'Bea', team: null, hand: hand([3, null, null]), trios: [] },
+          { id: 'p2', name: 'Carlos', team: null, hand: hand([null, null, null]), trios: [] },
+        ],
+        revealed: [
+          { value: 9, from: { kind: 'center', slot: 0 } },
+          { value: 3, from: { kind: 'hand', playerId: 'p1', index: 0 } },
+        ],
+        legal: { reveal: null, confirm: true, swap: null },
+      }),
+    );
+    expect(screen.getByLabelText('Hueco 1, carta 9, a la vista de todos')).toBeTruthy();
+    expect(rowOf('Bea').getByLabelText('Carta 1 de Bea, carta 3, a la vista de todos, no coincide')).toBeTruthy();
+    expect(container.querySelectorAll('.card.is-trio')).toHaveLength(0);
+  });
+
+  it('los tríos de cada uno se ven contra los que hacen falta para ganar', () => {
+    show(
+      playerView({
+        players: [
+          { id: 'p0', name: 'Ana', team: null, hand: hand([null, null, null]), trios: [] },
+          { id: 'p1', name: 'Bea', team: null, hand: hand([null, null, null]), trios: [3] },
+          { id: 'p2', name: 'Carlos', team: null, hand: hand([null, null, null]), trios: [] },
+        ],
+      }),
+    );
+    expect(rowOf('Bea').getByRole('img', { name: 'Tríos: 3 (1 de 3)' })).toBeTruthy();
+    expect(rowOf('Carlos').getByRole('img', { name: 'Sin tríos (0 de 3)' })).toBeTruthy();
+  });
+
+  it('en pantalla ancha el registro va abierto en el lateral, y en el móvil plegado', () => {
+    const { container } = show();
+    expect(container.querySelector('details.log')).toBeTruthy();
+    cleanup();
+
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+    try {
+      const wide = show();
+      expect(wide.container.querySelector('details.log')).toBeNull();
+      expect(screen.getByRole('heading', { name: 'Registro de jugadas' })).toBeTruthy();
+      // El turno y el registro van juntos en el lateral.
+      expect(wide.container.querySelector('.table__side .status')).toBeTruthy();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
   it('avisa de la cuenta atrás del servidor cuando queda poco', () => {
     const settled = playerView({ phase: 'awaitingReturn', outcome: 'mismatch', currentPlayerId: 'p1' });
     show(settled, roomView({ autoActionAt: Date.now() + 10_000 }));

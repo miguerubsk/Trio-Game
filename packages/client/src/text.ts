@@ -145,6 +145,14 @@ export function statusText(view: PlayerView, names: Names): Status {
         : `Memoriza: ${current} decide cuándo continuar.`,
     };
   }
+  // A mitad de turno: lo que llevas volteado, que ya casa, y lo que falta.
+  const value = view.revealed[0]?.value;
+  if (value !== undefined && view.revealed.length === 2) {
+    return mine
+      ? { main: '¡Te falta uno!', hint: `Encuentra el tercer ${value} y es tuyo.` }
+      : { main: `Turno de ${current}`, hint: `Lleva dos ${value}: le falta uno.` };
+  }
+  if (mine && value !== undefined) return { main: 'Te toca', hint: `Busca otro ${value}.` };
   return {
     main: mine ? 'Te toca' : `Turno de ${current}`,
     hint: mine ? 'Voltea una carta del centro o pide la más baja o la más alta de alguien.' : undefined,

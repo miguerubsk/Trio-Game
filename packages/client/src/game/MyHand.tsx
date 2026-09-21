@@ -1,5 +1,8 @@
 import type { End, PlayerView, Value } from '@trio/shared';
-import { Card, Trios } from '../ui/Card';
+import { Card, Progress } from '../ui/Card';
+import { Avatar } from '../ui/Icons';
+import { HandRow } from './HandRow';
+import { handMark } from './marks';
 
 interface Props {
   view: PlayerView;
@@ -15,12 +18,14 @@ export function MyHand({ view, onAsk, onChoose, received }: Props) {
   const me = view.players.find((p) => p.id === view.me);
   // Con cartas repetidas da igual cuál se marque: son la misma carta.
   const fresh = received == null ? -1 : view.myHand.findIndex((c) => c.value === received);
+  const myTurn = view.currentPlayerId === view.me && view.phase !== 'finished';
 
   return (
     <section className="myhand" aria-label="Tu mano">
       <header className="myhand__head">
+        <Avatar name={me?.name ?? ''} active={myTurn} />
         <h2>Tu mano</h2>
-        <Trios values={me?.trios ?? []} />
+        <Progress values={me?.trios ?? []} target={view.mode === 'teams' ? undefined : view.targetTrios} />
       </header>
 
       {received != null && (
@@ -30,30 +35,20 @@ export function MyHand({ view, onAsk, onChoose, received }: Props) {
       {view.myHand.length === 0 ? (
         <p className="player__empty">Te has quedado sin cartas.</p>
       ) : (
-        <div className="hand">
+        <HandRow who="Mi" count={view.myHand.length} onAsk={onAsk}>
           {view.myHand.map((card, i) => (
             <Card
               key={i}
               value={card.value}
               exposed={card.faceUp}
               fresh={i === fresh}
+              mark={handMark(view, view.me, i)}
               size="md"
               label={`Tu carta ${i + 1}`}
               onClick={onChoose ? () => onChoose(i) : undefined}
             />
           ))}
-        </div>
-      )}
-
-      {onAsk && (
-        <div className="asks">
-          <button type="button" className="btn btn--ask" onClick={() => onAsk('lowest')}>
-            ▼ Mi más baja
-          </button>
-          <button type="button" className="btn btn--ask" onClick={() => onAsk('highest')}>
-            ▲ Mi más alta
-          </button>
-        </div>
+        </HandRow>
       )}
     </section>
   );
