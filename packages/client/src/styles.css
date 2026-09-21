@@ -357,7 +357,6 @@ h3 {
   background: none;
   color: inherit;
   font: inherit;
-  perspective: 600px;
   /* El aro siempre está: solo cambia de color, así no da un salto al aparecer. */
   outline: 2px solid transparent;
   outline-offset: 2px;
@@ -392,6 +391,9 @@ h3 {
   display: block;
   width: 100%;
   height: 100%;
+  /* La perspectiva va aquí, en el padre de lo que gira: si se queda en .card,
+     esta capa la corta y el giro sale plano. */
+  perspective: 600px;
   transition: transform 160ms var(--ease-ui);
 }
 
@@ -570,13 +572,20 @@ h3 {
 }
 
 /* La capa que gira se prepara antes de tocarla: así el giro no se estrena en
-   el primer fotograma, que es cuando se notaba el tirón. */
-.card.is-choosable .card__flip,
-.card.is-choosable .card__lift {
+   el primer fotograma. Solo ella: en la del vuelo, `will-change` aplanaría
+   el 3D y el giro perdería la perspectiva. */
+.card.is-choosable .card__flip {
   will-change: transform;
 }
 
 /* Se hunde bajo el dedo en cuanto se toca, sin esperar al servidor. */
+/* Una carta que no se puede voltear sigue siendo una carta: ni apagada ni gris. */
+.card:disabled {
+  cursor: default;
+  opacity: 1;
+  color: inherit;
+}
+
 .card.is-choosable:active .card__lift {
   transform: scale(0.94);
   transition: transform 90ms var(--ease-ui);

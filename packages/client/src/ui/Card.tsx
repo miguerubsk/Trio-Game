@@ -106,23 +106,23 @@ export function Card({
     </span>
   );
 
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        className={classes.join(' ')}
-        style={style}
-        onClick={onClick}
-        aria-label={description}
-      >
-        {body}
-      </button>
-    );
-  }
+  /*
+   * Siempre un botón, apagado cuando no se puede voltear. Si cambiara de
+   * etiqueta al dejar de ser pulsable, React tiraría la carta y pondría otra
+   * en su sitio, ya dada la vuelta: una transición no puede animar algo que
+   * acaba de nacer, y el giro se perdía justo en la carta que tocas.
+   */
   return (
-    <span className={classes.join(' ')} style={style} role="img" aria-label={description}>
+    <button
+      type="button"
+      className={classes.join(' ')}
+      style={style}
+      onClick={onClick}
+      disabled={!onClick}
+      aria-label={description}
+    >
       {body}
-    </span>
+    </button>
   );
 }
 
