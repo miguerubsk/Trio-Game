@@ -153,6 +153,42 @@ describe('mesa', () => {
     expect(container.querySelectorAll('.card.is-trio')).toHaveLength(0);
   });
 
+  it('cuando una mano encoge, las cartas que quedan no arrastran el valor de la que se fue', () => {
+    const conCuatro = playerView({
+      players: [
+        { id: 'p0', name: 'Ana', team: null, hand: hand([null, null, null]), trios: [] },
+        { id: 'p1', name: 'Bea', team: null, hand: hand([null, 4, null]), trios: [] },
+        { id: 'p2', name: 'Carlos', team: null, hand: hand([null, null, null]), trios: [] },
+      ],
+    });
+    // El motor recoge el trío: la carta sale de su mano y las de detrás corren.
+    const recogido = playerView({
+      players: [
+        { id: 'p0', name: 'Ana', team: null, hand: hand([null, null, null]), trios: [] },
+        { id: 'p1', name: 'Bea', team: null, hand: hand([null, null]), trios: [4] },
+        { id: 'p2', name: 'Carlos', team: null, hand: hand([null, null, null]), trios: [] },
+      ],
+    });
+
+    const handlers = {
+      onAction: vi.fn(),
+      onKick: vi.fn(),
+      onSubstitute: vi.fn(),
+      onBackToLobby: vi.fn(),
+      onLeave: vi.fn(),
+    };
+    const room = roomView();
+    const { container, rerender } = render(
+      <Table room={room} view={conCuatro} {...handlers} received={null} />,
+    );
+    rerender(<Table room={room} view={recogido} {...handlers} received={null} />);
+
+    const valores = [...container.querySelectorAll('.card__value')]
+      .map((node) => node.textContent)
+      .filter(Boolean);
+    expect(valores).not.toContain('4');
+  });
+
   it('los tríos de cada uno se ven contra los que hacen falta para ganar', () => {
     show(
       playerView({

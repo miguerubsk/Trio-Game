@@ -38,9 +38,10 @@ export function MyHand({ view, onAsk, onChoose, received, orderAt }: Props) {
         <p className="player__empty">Te has quedado sin cartas.</p>
       ) : (
         <HandRow who="Mi" count={view.myHand.length} onAsk={onAsk}>
+          {/* Con el tamaño de la mano: ver el porqué en PlayerRow. */}
           {view.myHand.map((card, i) => (
             <Card
-              key={i}
+              key={`${view.myHand.length}-${i}`}
               value={card.value}
               exposed={card.faceUp}
               fresh={i === fresh}

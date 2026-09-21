@@ -155,12 +155,25 @@ const CUES: Record<Sound, (at: number, count: number) => void> = {
   join: (at) => tone(at, 880, 0.12, 0.09),
 };
 
+/** El trío y el fallo esperan a que la carta se pose: primero cae, luego se sabe. */
+const OFFSET: Record<Sound, number> = {
+  flip: 0,
+  back: 0,
+  trio: 0.3,
+  miss: 0.3,
+  collect: 0,
+  turn: 0,
+  deal: 0,
+  win: 0,
+  join: 0,
+};
+
 /** Suena, si hay sonido. Nunca revienta: sin audio, no hace nada. */
-export function play(sound: Sound, count = 1): void {
+export function play(sound: Sound, count = 1, delay = 0): void {
   const ctx = audio();
   if (!ctx) return;
   try {
-    CUES[sound](ctx.currentTime + 0.01, count);
+    CUES[sound](ctx.currentTime + 0.01 + OFFSET[sound] + delay, count);
   } catch {
     // Un sonido que falla no puede estropear una partida.
   }

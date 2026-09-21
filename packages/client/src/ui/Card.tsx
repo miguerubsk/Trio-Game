@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import type { Value } from '@trio/shared';
 
 /** Las dos deben coincidir con styles.css: el volteo y lo que se retrasa cada carta. */
-const FLIP_MS = 460;
+const FLIP_MS = 520;
 const STAGGER_MS = 90;
 
 export type CardSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';

@@ -10,6 +10,6 @@ export function useGameSounds(view: PlayerView): void {
   useEffect(() => {
     const before = previous.current;
     previous.current = view;
-    for (const cue of soundsFor(before, view)) play(cue.sound, cue.count);
+    for (const cue of soundsFor(before, view)) play(cue.sound, cue.count, cue.delay);
   }, [view]);
 }

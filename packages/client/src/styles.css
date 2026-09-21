@@ -2041,11 +2041,14 @@ h3 {
     transition-delay: 0ms;
   }
 
-  /* Ni vuelos, ni rebotes, ni entradas: todo aparece ya puesto. */
+  /* Ni vuelos, ni rebotes, ni entradas: todo aparece ya puesto. Las
+     transiciones también, o la carta seguiría encogiéndose al pulsarla y
+     levantándose al pasar el ratón. */
   *,
   *::before,
   *::after {
     animation: none !important;
+    transition: none !important;
   }
 
   .confetti {

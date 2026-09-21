@@ -74,9 +74,15 @@ export function PlayerRow({
         <p className="player__empty">Se ha quedado sin cartas.</p>
       ) : (
         <HandRow who="Su" count={player.hand.length} onAsk={onAsk}>
+          {/*
+            La clave lleva el tamaño de la mano: al recoger un trío, el motor
+            quita esa carta y las de detrás corren un sitio. Con la posición
+            sola, React reaprovecharía la carta de al lado y enseñaría un valor
+            que ya no está ahí.
+          */}
           {player.hand.map((slot, i) => (
             <Card
-              key={i}
+              key={`${player.hand.length}-${i}`}
               value={slot.faceUp ? slot.value : null}
               exposed={slot.faceUp}
               mark={markAt(i)}

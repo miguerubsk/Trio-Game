@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PlayerView } from '@trio/shared';
+import { buildView, type PlayerView } from '@trio/shared';
+import { ask, must, reveal, stateFromLayout } from '../../../shared/src/testing';
 import { playerView } from '../fixtures';
 import { soundsFor } from './events';
 
@@ -63,5 +64,37 @@ describe('qué suena en cada jugada', () => {
     expect(nombres(playerView(), otro)).toEqual([]);
     // Al terminar manda el final, no el turno.
     expect(nombres(otro, playerView({ phase: 'finished' }))).toEqual(['win']);
+  });
+});
+
+describe('la jugada que gana, contra el motor de verdad', () => {
+  it('suena la última carta, el trío, la recogida y la victoria', () => {
+    // Dos sietes en el centro y el tercero, el más bajo de tu mano.
+    const inicio = stateFromLayout({
+      hands: [
+        [7, 9, 11],
+        [2, 3, 4],
+        [5, 6, 8],
+      ],
+      center: [7, 7, 12],
+    });
+    const uno = must(inicio, 'p0', reveal(0));
+    const dos = must(uno, 'p0', reveal(1));
+    const gana = must(dos, 'p0', ask('p0', 'lowest'));
+
+    const vista = (estado: typeof inicio): PlayerView => buildView(estado, 'p0');
+    expect(vista(gana).phase).toBe('finished');
+    expect(vista(gana).winner?.reason).toBe('sevens');
+    // El motor no pasa por «continuar»: recoge el trío y termina en la misma
+    // jugada, así que esa última tiene que traer los cuatro sonidos.
+    expect(soundsFor(vista(dos), vista(gana)).map((c) => c.sound)).toEqual([
+      'flip',
+      'trio',
+      'collect',
+      'win',
+    ]);
+    // Y por el camino, una carta volteada cada vez.
+    expect(soundsFor(vista(inicio), vista(uno)).map((c) => c.sound)).toEqual(['flip']);
+    expect(soundsFor(vista(uno), vista(dos)).map((c) => c.sound)).toEqual(['flip']);
   });
 });
