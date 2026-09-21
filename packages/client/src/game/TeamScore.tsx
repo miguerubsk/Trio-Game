@@ -1,5 +1,5 @@
 import type { PlayerView, PublicPlayerView } from '@trio/shared';
-import { Trios } from '../ui/Card';
+import { Progress } from '../ui/Card';
 
 /** Los equipos de la partida, en orden, con sus dos miembros. */
 export function teamsOf(view: PlayerView): { team: number; members: PublicPlayerView[] }[] {
@@ -9,7 +9,10 @@ export function teamsOf(view: PlayerView): { team: number; members: PublicPlayer
   return teams.map((team) => ({ team, members: view.players.filter((p) => p.team === team) }));
 }
 
-/** Marcador por equipos: los tríos de los dos compañeros suman para la victoria. */
+/**
+ * Marcador por equipos: los tríos de los dos compañeros suman para la victoria.
+ * En escritorio ocupa el tapete, que en este modo no tiene cartas.
+ */
 export function TeamScore({ view }: { view: PlayerView }) {
   if (view.mode !== 'teams') return null;
 
@@ -23,13 +26,13 @@ export function TeamScore({ view }: { view: PlayerView }) {
             <h3>
               Equipo {team + 1} {mine && <span className="tag">el tuyo</span>}
             </h3>
-            <p className="muted">{members.map((m) => m.name).join(' y ')}</p>
-            <p className="teams__score">
-              <Trios values={trios} />
-              <span className="muted">
+            <p className="teams__members">{members.map((m) => m.name).join(' y ')}</p>
+            <div className="teams__score">
+              <Progress values={trios} target={view.targetTrios} />
+              <span className="teams__count">
                 {trios.length} de {view.targetTrios}
               </span>
-            </p>
+            </div>
           </article>
         );
       })}

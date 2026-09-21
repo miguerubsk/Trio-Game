@@ -2,6 +2,7 @@ import type { Session } from '@trio/shared';
 
 const SESSION_KEY = 'trio.session';
 const NAME_KEY = 'trio.name';
+const SOUND_KEY = 'trio.sound';
 
 /** En modo privado o con el almacenamiento bloqueado, leer o escribir lanza. */
 function read(key: string): string | null {
@@ -39,3 +40,7 @@ export const saveSession = (session: Session | null): void =>
 
 export const loadName = (): string => read(NAME_KEY) ?? '';
 export const saveName = (name: string): void => write(NAME_KEY, name);
+
+/** El sonido viene puesto; quien lo apaga, lo tiene apagado la próxima vez. */
+export const loadSound = (): boolean => read(SOUND_KEY) !== 'off';
+export const saveSound = (on: boolean): void => write(SOUND_KEY, on ? 'on' : 'off');

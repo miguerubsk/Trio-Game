@@ -81,6 +81,24 @@ describe('barra de estado', () => {
     expect(statusText(playerView({ currentPlayerId: 'p1' }), names)).toEqual({ main: 'Turno de Bea' });
   });
 
+  it('a mitad de turno dice qué buscar, y cuando solo falta uno lo avisa a todos', () => {
+    const one = playerView({ revealed: [{ value: 5, from: { kind: 'center', slot: 0 } }] });
+    expect(statusText(one, names)).toEqual({ main: 'Te toca', hint: 'Busca otro 5.' });
+
+    const two = playerView({
+      revealed: [
+        { value: 5, from: { kind: 'center', slot: 0 } },
+        { value: 5, from: { kind: 'hand', playerId: 'p1', index: 0 } },
+      ],
+    });
+    expect(statusText(two, names).main).toBe('¡Te falta uno!');
+    expect(statusText(two, names).hint).toContain('tercer 5');
+    expect(statusText({ ...two, currentPlayerId: 'p1' }, names)).toEqual({
+      main: 'Turno de Bea',
+      hint: 'Lleva dos 5: le falta uno.',
+    });
+  });
+
   it('con la jugada cerrada, distingue trío de fallo y quién continúa', () => {
     const trio = playerView({
       phase: 'awaitingReturn',

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { PlayerView } from '@trio/shared';
 import { autoActionText, statusText, type Names } from '../text';
+import { Card, EmptySlot } from '../ui/Card';
+import { trailMark } from './marks';
 
 interface Props {
   view: PlayerView;
@@ -27,12 +29,38 @@ export function StatusBar({ view, names, autoActionAt, onConfirm }: Props) {
   const status = statusText(view, names);
   const countdown = waiting ? autoActionText(autoActionAt, now) : null;
   const mine = view.currentPlayerId === view.me;
+  // La estela: las cartas de este turno, una detrás de otra, hasta tres.
+  const trail = view.phase === 'awaitingReveal' || view.phase === 'awaitingReturn';
+
+  const classes = ['status'];
+  if (mine) classes.push('is-mine');
+  if (view.legal.confirm) classes.push('has-next');
+  if (view.phase === 'awaitingReturn' && view.outcome === 'trio') classes.push('is-trio');
+  if (view.phase === 'awaitingReturn' && view.outcome === 'mismatch') classes.push('is-miss');
 
   return (
-    <section className={`status ${mine ? 'is-mine' : ''}`} aria-live="polite">
+    <section className={classes.join(' ')} aria-live="polite">
+      {trail && (
+        <div className="trail" aria-hidden="true">
+          {[0, 1, 2].map((i) => {
+            const card = view.revealed[i];
+            return card ? (
+              <Card key={i} value={card.value} mark={trailMark(view, i)} order={i} size="xs" />
+            ) : (
+              <EmptySlot key={i} size="xs" />
+            );
+          })}
+        </div>
+      )}
+      {/* La `key` hace que el texto se cambie con un fundido en vez de saltar. */}
       <div className="status__text">
-        <p className="status__main">{status.main}</p>
-        {status.hint && <p className="status__hint">{status.hint}</p>}
+        <p className="status__main" key={status.main}>
+          {status.main}
+        </p>
+        {/* Siempre está, aunque venga vacía: así la barra no cambia de alto. */}
+        <p className="status__hint" key={status.hint}>
+          {status.hint}
+        </p>
         {countdown && <p className="status__countdown">{countdown}</p>}
       </div>
       {view.legal.confirm && (

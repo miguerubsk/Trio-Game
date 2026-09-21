@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   BOT_TAKEOVER_SECONDS,
   IDLE_SECONDS,
@@ -11,6 +11,9 @@ import {
   type RoomView,
 } from '@trio/shared';
 import { blockerText } from '../text';
+import { play } from '../sound/player';
+import { Avatar } from '../ui/Icons';
+import { SoundToggle } from '../ui/SoundToggle';
 
 interface Props {
   room: RoomView;
@@ -66,59 +69,73 @@ export function Lobby({
   const isHost = room.hostId === room.me;
   const hostName = room.members.find((m) => m.id === room.hostId)?.name ?? 'el anfitrión';
 
+  // Un aviso corto cuando llega alguien: se está mirando el móvil esperando.
+  const seen = useRef(room.members.length);
+  useEffect(() => {
+    if (room.members.length > seen.current) play('join');
+    seen.current = room.members.length;
+  }, [room.members.length]);
+
   return (
     <main className="lobby">
-      <ShareCode code={room.code} />
+      <div className="lobby__col">
+        <ShareCode code={room.code} />
 
-      <section className="panel">
-        <h2>Jugadores ({room.members.length})</h2>
-        <ul className="members">
-          {room.members.map((m) => (
-            <li key={m.id} className={m.connected ? '' : 'is-off'}>
-              <span className="members__name">{m.name}</span>
-              {m.id === room.me && <span className="tag">tú</span>}
-              {m.id === room.hostId && <span className="tag">anfitrión</span>}
-              {m.bot && <span className="tag tag--bot">bot</span>}
-              {!m.connected && <span className="tag tag--warn">sin conexión</span>}
-              {isHost && m.id !== room.me && (
-                <button
-                  type="button"
-                  className="link"
-                  onClick={() => (m.bot || window.confirm(`¿Expulsar a ${m.name}?`)) && onKick(m.id)}
-                >
-                  {m.bot ? 'Quitar' : 'Expulsar'}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-        {isHost && (
-          <button
-            type="button"
-            className="btn"
-            onClick={onAddBot}
-            disabled={room.members.length >= MAX_PLAYERS}
-          >
-            Añadir un bot
-          </button>
-        )}
-      </section>
-
-      <section className="panel">
-        <h2>Partida</h2>
-        <div className="modes" role="group" aria-label="Modo de juego">
-          {MODES.map(({ mode, label }) => (
+        <section className="panel">
+          <div className="panel__head">
+            <h2>Jugadores ({room.members.length})</h2>
+            <SoundToggle />
+          </div>
+          <ul className="members">
+            {room.members.map((m) => (
+              <li key={m.id} className={m.connected ? '' : 'is-off'}>
+                <Avatar name={m.name} bot={m.bot} active={m.id === room.me} />
+                <span className="members__name">{m.name}</span>
+                {m.id === room.me && <span className="tag">tú</span>}
+                {m.id === room.hostId && <span className="tag">anfitrión</span>}
+                {m.bot && <span className="tag tag--bot">bot</span>}
+                {!m.connected && <span className="tag tag--warn">sin conexión</span>}
+                {isHost && m.id !== room.me && (
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() => (m.bot || window.confirm(`¿Expulsar a ${m.name}?`)) && onKick(m.id)}
+                  >
+                    {m.bot ? 'Quitar' : 'Expulsar'}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {isHost && (
             <button
-              key={mode}
               type="button"
-              className={`btn ${room.config.mode === mode ? 'btn--primary' : ''}`}
-              aria-pressed={room.config.mode === mode}
-              disabled={!isHost}
-              onClick={() => onConfigure({ mode })}
+              className="btn"
+              onClick={onAddBot}
+              disabled={room.members.length >= MAX_PLAYERS}
             >
-              {label}
+              Añadir un bot
             </button>
-          ))}
+          )}
+        </section>
+      </div>
+
+      <div className="lobby__col">
+        <section className="panel">
+          <h2>Partida</h2>
+          <div className="modes" role="group" aria-label="Modo de juego">
+            {MODES.map(({ mode, label }) => (
+              <button
+                key={mode}
+                type="button"
+                className={`btn ${room.config.mode === mode ? 'btn--primary' : ''}`}
+                aria-pressed={room.config.mode === mode}
+                disabled={!isHost}
+                onClick={() => onConfigure({ mode })}
+              >
+                {label}
+              </button>
+            ))}
         </div>
         <p className="muted">{MODES.find((m) => m.mode === room.config.mode)?.blurb}</p>
 
@@ -189,6 +206,7 @@ export function Lobby({
       <button type="button" className="link" onClick={() => window.confirm('¿Salir de la sala?') && onLeave()}>
         Salir de la sala
       </button>
+      </div>
     </main>
   );
 }
@@ -259,7 +277,15 @@ function ShareCode({ code }: { code: string }) {
   return (
     <section className="share">
       <p className="share__label">Código de la sala</p>
-      <p className="share__code">{code}</p>
+      <p className="share__code">
+        {/* El código se lee entero; las fichas son solo para verlo. */}
+        <span className="visually-hidden">{code}</span>
+        {[...code].map((letter, i) => (
+          <span className="tile" key={i} style={{ '--i': i } as CSSProperties} aria-hidden="true">
+            {letter}
+          </span>
+        ))}
+      </p>
       <button type="button" className="btn" onClick={() => void share()}>
         {copied ? '¡Enlace copiado!' : 'Compartir enlace'}
       </button>
