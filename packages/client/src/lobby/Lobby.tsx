@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   BOT_TAKEOVER_SECONDS,
   IDLE_SECONDS,
@@ -11,7 +11,9 @@ import {
   type RoomView,
 } from '@trio/shared';
 import { blockerText } from '../text';
+import { play } from '../sound/player';
 import { Avatar } from '../ui/Icons';
+import { SoundToggle } from '../ui/SoundToggle';
 
 interface Props {
   room: RoomView;
@@ -67,13 +69,23 @@ export function Lobby({
   const isHost = room.hostId === room.me;
   const hostName = room.members.find((m) => m.id === room.hostId)?.name ?? 'el anfitrión';
 
+  // Un aviso corto cuando llega alguien: se está mirando el móvil esperando.
+  const seen = useRef(room.members.length);
+  useEffect(() => {
+    if (room.members.length > seen.current) play('join');
+    seen.current = room.members.length;
+  }, [room.members.length]);
+
   return (
     <main className="lobby">
       <div className="lobby__col">
         <ShareCode code={room.code} />
 
         <section className="panel">
-          <h2>Jugadores ({room.members.length})</h2>
+          <div className="panel__head">
+            <h2>Jugadores ({room.members.length})</h2>
+            <SoundToggle />
+          </div>
           <ul className="members">
             {room.members.map((m) => (
               <li key={m.id} className={m.connected ? '' : 'is-off'}>

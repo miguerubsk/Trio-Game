@@ -2,7 +2,9 @@ import { useEffect, useMemo } from 'react';
 import type { Action, End, PlayerId, PlayerView, RoomView, Value } from '@trio/shared';
 import { winnerText, type Names } from '../text';
 import { Progress, TrioFan, valueClass } from '../ui/Card';
+import { useGameSounds } from '../sound/useGameSounds';
 import { Avatar, Logo } from '../ui/Icons';
+import { SoundToggle } from '../ui/SoundToggle';
 import { useWide } from '../ui/useWide';
 import { Center } from './Center';
 import { LogSheet } from './LogSheet';
@@ -45,6 +47,7 @@ export function Table({
   const myTurn = view.currentPlayerId === view.me && view.phase === 'awaitingReveal';
   const wide = useWide();
   const orderOf = useRevealOrder(view);
+  useGameSounds(view);
   // Por equipos los tríos cuentan por pareja: la meta se ve en el marcador.
   const target = view.mode === 'teams' ? undefined : view.targetTrios;
 
@@ -89,6 +92,7 @@ export function Table({
           <Logo /> Sala <span className="code-chip">{room.code}</span>
         </span>
         <div className="table__actions">
+          <SoundToggle />
           {isHost && view.phase !== 'finished' && (
             <button
               type="button"
