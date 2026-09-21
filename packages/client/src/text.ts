@@ -155,7 +155,7 @@ export function statusText(view: PlayerView, names: Names): Status {
   if (mine && value !== undefined) return { main: 'Te toca', hint: `Busca otro ${value}.` };
   return {
     main: mine ? 'Te toca' : `Turno de ${current}`,
-    hint: mine ? 'Voltea una carta del centro o pide la más baja o la más alta de alguien.' : undefined,
+    hint: mine ? 'Voltea una carta del centro o pide la más baja o la más alta.' : undefined,
   };
 }
 

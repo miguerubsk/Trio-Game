@@ -74,7 +74,10 @@ describe('mesa', () => {
     const { container } = show(
       playerView({ currentPlayerId: 'p1', legal: { reveal: null, confirm: false, swap: null } }),
     );
-    expect(screen.queryByRole('button', { name: /más baja/ })).toBeNull();
+    // Los botones siguen ahí para que la mesa no se mueva, pero apagados.
+    const asks = screen.getAllByRole('button', { name: /más baja|más alta/ }) as HTMLButtonElement[];
+    expect(asks.length).toBeGreaterThan(0);
+    expect(asks.every((b) => b.disabled)).toBe(true);
     expect(container.querySelectorAll('.card.is-choosable')).toHaveLength(0);
     expect(screen.getByText('Turno de Bea')).toBeTruthy();
   });

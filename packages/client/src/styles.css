@@ -32,11 +32,11 @@
   --radius: 16px;
   /* Tiempos y curvas, en un sitio: el volteo, lo que se retrasa cada carta al
      volver (también en ui/Card.tsx), el reparto y las entradas de la interfaz. */
-  --flip: 460ms;
+  --flip: 520ms;
   --stagger: 90ms;
   --deal: 26ms;
   --ui: 300ms;
-  --ease-card: cubic-bezier(0.22, 0.9, 0.28, 1.02);
+  --ease-card: cubic-bezier(0.34, 0.02, 0.2, 1);
   --ease-ui: cubic-bezier(0.22, 0.85, 0.3, 1);
   --shadow: 0 1px 1px rgb(0 0 0 / 30%), 0 3px 8px rgb(0 0 0 / 28%);
   --display: 'Fredoka Variable', 'Fredoka', system-ui, sans-serif;
@@ -392,6 +392,7 @@ h3 {
   display: block;
   width: 100%;
   height: 100%;
+  transition: transform 160ms var(--ease-ui);
 }
 
 /* El orden del reparto: primero los rivales, luego tu mano y al final el centro. */
@@ -566,13 +567,21 @@ h3 {
 .card.is-choosable {
   cursor: pointer;
   outline-color: var(--accent);
-  transform: translateY(-2px);
 }
 
-.card.is-choosable:active {
-  transform: translateY(0) scale(0.94);
-  transition-duration: 80ms;
+/* La capa que gira se prepara antes de tocarla: así el giro no se estrena en
+   el primer fotograma, que es cuando se notaba el tirón. */
+.card.is-choosable .card__flip,
+.card.is-choosable .card__lift {
+  will-change: transform;
 }
+
+/* Se hunde bajo el dedo en cuanto se toca, sin esperar al servidor. */
+.card.is-choosable:active .card__lift {
+  transform: scale(0.94);
+  transition: transform 90ms var(--ease-ui);
+}
+
 
 /* Cómo acabó la jugada: el trío brilla, la que no casa tiembla. Al posarse. */
 .card.is-trio {
@@ -597,11 +606,11 @@ h3 {
   0% {
     transform: translateY(0) scale(1);
   }
-  45% {
-    transform: translateY(-14px) scale(1.09);
+  40% {
+    transform: translateY(-13px) scale(1.07);
   }
-  78% {
-    transform: translateY(1px) scale(0.99);
+  82% {
+    transform: translateY(0) scale(0.995);
   }
   100% {
     transform: translateY(0) scale(1);
@@ -822,14 +831,10 @@ h3 {
 .handrow {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-areas: 'hand hand';
-  gap: 12px 8px;
-}
-
-.handrow.can-ask {
   grid-template-areas:
     'hand hand'
     'low high';
+  gap: 12px 8px;
 }
 
 .hand {
@@ -859,6 +864,13 @@ h3 {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
   background: color-mix(in srgb, var(--accent) 9%, var(--bg-soft));
   box-shadow: 0 2px 0 color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+
+.ask:disabled {
+  opacity: 0.4;
+  border-color: var(--line);
+  background: var(--bg-soft);
+  box-shadow: none;
 }
 
 .ask--low {
@@ -980,6 +992,19 @@ h3 {
   margin: 2px 0 0;
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+/*
+ * La pista guarda siempre sitio para dos líneas. Cambia en cada volteo, y si
+ * la barra encogiera, la mesa entera daría un salto justo al tocar la carta.
+ */
+.status__hint {
+  min-height: 2.8em;
+}
+
+/* Cuando hay botón, la pista sobra: lo que hay que hacer lo dice el botón. */
+.status.has-next .status__hint {
+  display: none;
 }
 
 .myhand {

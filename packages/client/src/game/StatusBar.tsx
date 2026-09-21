@@ -34,6 +34,7 @@ export function StatusBar({ view, names, autoActionAt, onConfirm }: Props) {
 
   const classes = ['status'];
   if (mine) classes.push('is-mine');
+  if (view.legal.confirm) classes.push('has-next');
   if (view.phase === 'awaitingReturn' && view.outcome === 'trio') classes.push('is-trio');
   if (view.phase === 'awaitingReturn' && view.outcome === 'mismatch') classes.push('is-miss');
 
@@ -56,11 +57,10 @@ export function StatusBar({ view, names, autoActionAt, onConfirm }: Props) {
         <p className="status__main" key={status.main}>
           {status.main}
         </p>
-        {status.hint && (
-          <p className="status__hint" key={status.hint}>
-            {status.hint}
-          </p>
-        )}
+        {/* Siempre está, aunque venga vacía: así la barra no cambia de alto. */}
+        <p className="status__hint" key={status.hint}>
+          {status.hint}
+        </p>
         {countdown && <p className="status__countdown">{countdown}</p>}
       </div>
       {view.legal.confirm && (
