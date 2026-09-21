@@ -161,6 +161,21 @@ sign the checksums.
   and the card front leaves room for them, so what's missing is the rules in the engine and drawing
   those numbers. Dealing and the per-player view stay as they are.
 
+## Thanks
+
+To **[Volmer](https://github.com/VolmerES)**, who gave the game its look, its movement and its
+sound.
+
+The paper cards are his, with a colour for every number and the 7 in gold because its trio wins on
+the spot, and so is the three-dot mark on their backs that became the logo. He also made the felt in
+the middle of the table and the desk layout that fits the whole game on a big screen. The
+animations are his too: cards lift, turn in the air and settle, trios glow, misses shake, and
+everything goes back face down in the order it was flipped. All of it steps aside when your system
+asks for reduced motion. And every sound in the game is synthesised in the browser with Web Audio,
+without a single audio file.
+
+He took a game that worked and made it one you want to sit down and play.
+
 ## License
 
 The code in this repository is free software under the **GNU GPL v3** (see [LICENSE](LICENSE)). The
