@@ -68,9 +68,11 @@ export function teamIndexes(s: GameState): number[] {
   return [...teams].sort((a, b) => a - b);
 }
 
-/** Tríos que cuentan para la victoria: los propios, o los de todo el equipo. */
-export function triosOfSide(s: GameState, playerId: PlayerId): number {
+/** Tríos que cuentan para la victoria: los propios, o los de toda la pareja. */
+export function trioValuesOfSide(s: GameState, playerId: PlayerId): Value[] {
   const player = playerById(s, playerId);
-  if (s.config.mode !== 'teams' || player.team === null) return triosOf(s, playerId).length;
-  return teamMembers(s, player.team).reduce((sum, id) => sum + triosOf(s, id).length, 0);
+  if (!s.config.teams || player.team === null) return [...triosOf(s, playerId)];
+  return teamMembers(s, player.team).flatMap((id) => triosOf(s, id));
 }
+
+export const triosOfSide = (s: GameState, playerId: PlayerId): number => trioValuesOfSide(s, playerId).length;

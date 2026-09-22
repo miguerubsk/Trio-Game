@@ -17,7 +17,8 @@ const roster = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `p${i}`
 function withSecrets(s: GameState, viewer: PlayerId): GameState {
   const copy = JSON.parse(JSON.stringify(s)) as GameState;
   const known = new Set<number>([...handOf(copy, viewer), ...copy.revealed.map((r) => r.cardId)]);
-  copy.cards = copy.cards.map((c) => (known.has(c.id) ? c : { ...c, value: SECRET }));
+  // La esquina delata el número (el 1 conecta con 6 y 8…): también es secreta.
+  copy.cards = copy.cards.map((c) => (known.has(c.id) ? c : { ...c, value: SECRET, secondary: [SECRET] }));
   return copy;
 }
 
@@ -25,26 +26,26 @@ const leaks = (s: GameState, viewer: PlayerId) =>
   LEAK.test(JSON.stringify(buildView(withSecrets(s, viewer), viewer)));
 
 /** Partida con dos cartas ya volteadas: una del centro y otra de la mano de otro jugador. */
-function midTurn(mode: 'simple' | 'teams' = 'simple', players = 4): GameState {
-  let s = createGame({ players: roster(players), mode, rng: mulberry32(21) });
+function midTurn(teams = false, players = 4): GameState {
+  let s = createGame({ players: roster(players), mode: 'simple', teams, rng: mulberry32(21) });
   if (s.phase === 'teamSwap') {
     for (const p of s.players) s = must(s, p.id, { type: 'SWAP_PASS' });
   }
   const active = s.players[s.currentPlayerIndex]?.id as PlayerId;
   const other = s.players.find((p) => p.id !== active)?.id as PlayerId;
-  if (mode === 'simple') s = must(s, active, reveal(0));
+  if (!teams) s = must(s, active, reveal(0));
   else s = must(s, active, ask(active, 'lowest'));
   return must(s, active, ask(other, 'highest'));
 }
 
 describe('redacción de la vista', () => {
   it('ningún jugador recibe el valor de una carta que no puede ver (sencillo)', () => {
-    const s = midTurn('simple', 4);
+    const s = midTurn(false, 4);
     for (const p of s.players) expect(leaks(s, p.id), `vista de ${p.id}`).toBe(false);
   });
 
   it('ningún jugador recibe el valor de una carta que no puede ver (equipos)', () => {
-    const s = midTurn('teams', 6);
+    const s = midTurn(true, 6);
     for (const p of s.players) expect(leaks(s, p.id), `vista de ${p.id}`).toBe(false);
   });
 
@@ -55,12 +56,12 @@ describe('redacción de la vista', () => {
 
   it('la prueba detecta fugas: la mano propia sí contiene los valores', () => {
     // Si esta comprobación fallara, «no hay fugas» de arriba sería una prueba vacía.
-    const s = midTurn('simple', 4);
+    const s = midTurn(false, 4);
     expect(LEAK.test(JSON.stringify(buildView(withSecrets(s, 'p1'), 'p0')))).toBe(true);
   });
 
   it('las cartas boca arriba son públicas y se ven con su valor', () => {
-    const s = midTurn('simple', 4);
+    const s = midTurn(false, 4);
     const trueValues = s.revealed.map((r) => s.cards[r.cardId]?.value);
     for (const p of s.players) {
       const view = buildView(s, p.id);
@@ -70,7 +71,7 @@ describe('redacción de la vista', () => {
   });
 
   it('una carta oculta ni siquiera lleva el campo valor', () => {
-    const s = midTurn('simple', 4);
+    const s = midTurn(false, 4);
     const view = buildView(s, 'p0');
     for (const slot of view.center) if (slot.state !== 'up') expect('value' in slot).toBe(false);
     for (const p of view.players) {
@@ -79,7 +80,7 @@ describe('redacción de la vista', () => {
   });
 
   it('la parte pública es idéntica para todos los jugadores', () => {
-    const s = midTurn('simple', 4);
+    const s = midTurn(false, 4);
     const views = s.players.map((p) => buildView(s, p.id));
     const [first, ...rest] = views;
     for (const v of rest) {
@@ -93,7 +94,7 @@ describe('redacción de la vista', () => {
   });
 
   it('cada jugador ve su propia mano completa, ordenada y alineada con la de la mesa', () => {
-    const s = midTurn('simple', 4);
+    const s = midTurn(false, 4);
     for (const p of s.players) {
       const view = buildView(s, p.id);
       expect(view.myHand.map((c) => c.value)).toEqual(handValues(s, p.id));
@@ -115,7 +116,7 @@ describe('redacción de la vista', () => {
 });
 
 describe('redacción de los intercambios', () => {
-  const fresh = () => createGame({ players: roster(4), mode: 'teams', rng: mulberry32(5) });
+  const fresh = () => createGame({ players: roster(4), mode: 'simple', teams: true, rng: mulberry32(5) });
 
   it('no se sabe qué carta ha elegido el compañero, solo que ha respondido', () => {
     const s = must(fresh(), 'p0', choose(3));

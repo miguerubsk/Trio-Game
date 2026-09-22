@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import type { Value } from '@trio/shared';
+import { CONNECTIONS, type Value } from '@trio/shared';
 
 /** Las dos deben coincidir con styles.css: el volteo y lo que se retrasa cada carta. */
 const FLIP_MS = 520;
@@ -67,6 +67,8 @@ export function Card({
 }: Props) {
   const shown = useFlippingValue(value, order);
   const faceUp = value !== null;
+  // Las conexiones salen del número, así que solo se ven cuando se ve el número.
+  const links = shown !== null ? CONNECTIONS[shown] : [];
   // Está girándose boca abajo: ya no tiene valor, pero todavía se le ve la cara.
   const returning = !faceUp && shown !== null;
   const classes = ['card', `card--${size}`];
@@ -84,6 +86,7 @@ export function Card({
     faceUp ? `carta ${value}` : 'carta boca abajo',
     exposed ? 'a la vista de todos' : null,
     mark === 'trio' ? 'forma trío' : mark === 'miss' ? 'no coincide' : null,
+    faceUp && links.length ? `conecta con ${links.join(' y ')}` : null,
     fresh ? 'te la acaba de dar tu compañero' : null,
   ]
     .filter(Boolean)
@@ -96,11 +99,18 @@ export function Card({
     <span className="card__lift">
       <span className="card__flip">
         <span className="card__face card__back" aria-hidden="true" />
-        {/* El número del pie, como en una baraja, lo pinta el CSS con `data-value`. */}
-        <span className="card__face card__front" data-value={shown ?? undefined}>
+        <span className="card__face card__front">
           <span className="card__value">{shown}</span>
-        {/* Hueco de los números pequeños del futuro modo Picante. */}
-          <span className="card__corner" aria-hidden="true" />
+          {/* Con qué tríos conecta, para el modo picante: uno en cada esquina de arriba. */}
+          {links.map((link, i) => (
+            <span
+              key={link}
+              className={`card__corner card__corner--${i === 0 ? 'left' : 'right'} ${valueClass(link)}`}
+              aria-hidden="true"
+            >
+              {link}
+            </span>
+          ))}
         </span>
       </span>
     </span>

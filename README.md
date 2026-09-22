@@ -18,9 +18,15 @@ The interface is in Spanish, because that's who I play with.
 - If all three match, you take the trio. If they don't, everything goes back where it was.
 - Flipped cards stay face up until **the player whose turn it is presses «continuar»**. They decide
   how long everyone else gets to memorise them. Then the turn passes on.
-- First to **3 trios** wins, and so does anyone who makes the **trio of sevens**, on the spot.
-- **Teams mode** (4 or 6 players): partners play with no cards in the middle, their trios add up, and
-  each pair may swap a card at the start and every time a rival team takes a trio.
+- The room picks one of the two modes from the rulebook:
+  - **Simple**: first to **3 trios** wins.
+  - **Spicy**: first to **2 connected trios** wins. Two numbers are connected when they add up to 7
+    or are 7 apart (1 with 6 and 8, 2 with 5 and 9, and so on), and each card shows its connections
+    in its top corners. The 7 connects with nothing.
+- In both, whoever makes the **trio of sevens** wins on the spot.
+- **Teams** (4 or 6 players) is a variant of either mode: partners play with no cards in the middle,
+  their trios add up, and each pair may swap a card at the start and every time a rival team takes a
+  trio.
 
 ### Bots
 
@@ -100,7 +106,7 @@ The repository is a monorepo with three packages:
 
 | Package | What it is |
 |---|---|
-| `packages/shared` | The game engine: cards, dealing, turns, trios, teams, and the per-player view. No dependencies and no I/O, so all of it is tested without starting anything. |
+| `packages/shared` | The game engine: cards, dealing, turns, trios, both ways to win, teams, and the per-player view. No dependencies and no I/O, so all of it is tested without starting anything. |
 | `packages/server` | Node + Socket.IO: rooms, codes, sessions, validation of every action, and the inactivity safeguards. It also serves the compiled client. |
 | `packages/client` | React + Vite: home, room and table. Mobile-first. |
 
@@ -145,9 +151,6 @@ The signature should come from the key `683C 4764 7FCB 2433 BBF8  4CE4 CEDF 0387
 - **Internationalisation.** The interface is Spanish only. The strings sit partly in
   `packages/client/src/text.ts` and partly inline in the components; the work is to pull them all
   into one place, add English, and let you pick a language.
-- **Spicy mode.** The card model already carries the `secondary` field for the small corner numbers,
-  and the card front leaves room for them, so what's missing is the rules in the engine and drawing
-  those numbers. Dealing and the per-player view stay as they are.
 
 ## Thanks
 

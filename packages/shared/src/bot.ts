@@ -1,4 +1,4 @@
-import type { Value } from './cards';
+import { connected, SEVENS, type Value } from './cards';
 import type { Rng } from './rng';
 import type { Action, End, GameEvent, PlayerId, RevealFrom } from './types';
 import type { PlayerView } from './view';
@@ -192,21 +192,27 @@ class MemoryBot implements Bot {
     }
 
     // Turno nuevo: con tres cartas conocidas del mismo valor, el trío es seguro.
-    const sure = this.sureTrio(options);
+    const sure = this.sureTrio(options, view);
     if (sure) return sure;
     return this.pick(unknown.length > 0 ? unknown : options).action;
   }
 
-  private sureTrio(options: Option[]): Action | null {
+  /**
+   * De los tríos seguros, primero el que gana: el de sietes, y en picante el
+   * que conecta con uno que ya tiene su lado de la mesa.
+   */
+  private sureTrio(options: Option[], view: PlayerView): Action | null {
     const byValue = new Map<Value, Option[]>();
     for (const option of options) {
       if (option.value === null) continue;
       byValue.set(option.value, [...(byValue.get(option.value) ?? []), option]);
     }
-    for (const group of byValue.values()) {
-      if (group.length >= 3) return this.pick(group).action;
-    }
-    return null;
+    const won = sideTrios(view);
+    const rank = (value: Value) =>
+      value === SEVENS ? 0 : view.mode === 'spicy' && won.some((w) => connected(w, value)) ? 1 : 2;
+    const sure = [...byValue].filter(([, group]) => group.length >= 3).sort(([a], [b]) => rank(a) - rank(b));
+    const best = sure[0];
+    return best ? this.pick(best[1]).action : null;
   }
 
   /**
@@ -223,6 +229,14 @@ class MemoryBot implements Bot {
   private pick<T>(options: T[]): T {
     return options[Math.floor(this.rng() * options.length)] as T;
   }
+}
+
+/** Los tríos que cuentan para su victoria: los suyos, o los de su pareja también. */
+function sideTrios(view: PlayerView): Value[] {
+  const me = view.players.find((p) => p.id === view.me);
+  if (!me) return [];
+  if (!view.teams || me.team === null) return me.trios;
+  return view.players.filter((p) => p.team === me.team).flatMap((p) => p.trios);
 }
 
 /** Posiciones de la carta oculta más baja y más alta, que son las que se pueden pedir. */

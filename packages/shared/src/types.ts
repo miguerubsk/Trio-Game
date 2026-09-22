@@ -40,11 +40,14 @@ export interface SwapState {
 export interface Winner {
   playerIds: PlayerId[];
   team: number | null;
-  reason: 'trios' | 'sevens';
+  /** Tres tríos (sencillo), dos tríos conectados (picante) o el trío de sietes. */
+  reason: 'trios' | 'connected' | 'sevens';
 }
 
 export interface GameConfig {
   mode: GameMode;
+  /** Variante por equipos: parejas enfrentadas, sin centro y con intercambios. */
+  teams: boolean;
   targetTrios: number;
 }
 

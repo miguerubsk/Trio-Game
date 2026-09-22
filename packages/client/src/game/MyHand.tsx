@@ -27,7 +27,7 @@ export function MyHand({ view, onAsk, onChoose, received, orderAt }: Props) {
       <header className="myhand__head">
         <Avatar name={me?.name ?? ''} active={myTurn} />
         <h2>Tu mano</h2>
-        <Progress values={me?.trios ?? []} target={view.mode === 'teams' ? undefined : view.targetTrios} />
+        <Progress values={me?.trios ?? []} target={view.teams ? undefined : view.targetTrios} />
       </header>
 
       {received != null && (

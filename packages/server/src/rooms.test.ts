@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   IDLE_SECONDS,
+  type GameMode,
   legalActions,
   mulberry32,
   ROOM_CODE_ALPHABET,
@@ -43,9 +44,9 @@ function lobby(n: number, h = harness()): { room: Room; members: Member[]; h: Ha
   return { room: created.room, members, h };
 }
 
-function started(n: number, mode: 'simple' | 'teams' = 'simple') {
+function started(n: number, teams = false, mode: GameMode = 'simple') {
   const setup = lobby(n);
-  expect(setup.room.configure(setup.members[0]!.id, { mode })).toBeNull();
+  expect(setup.room.configure(setup.members[0]!.id, { mode, teams })).toBeNull();
   expect(setup.room.start(setup.members[0]!.id)).toBeNull();
   return setup;
 }
@@ -125,12 +126,15 @@ describe('sala', () => {
   it('solo el anfitrión configura, y solo con valores válidos', () => {
     const { room, members } = lobby(3);
     const [host, guest] = members as [Member, Member];
-    expect(room.configure(guest.id, { mode: 'teams' })).toBe('NOT_HOST');
+    expect(room.configure(guest.id, { teams: true })).toBe('NOT_HOST');
     expect(room.configure(host.id, { mode: 'picante' })).toBe('INVALID_CONFIG');
     expect(room.configure(host.id, { idleSeconds: IDLE_SECONDS.min - 1 })).toBe('INVALID_CONFIG');
     expect(room.configure(host.id, { idleSeconds: 45.5 })).toBe('INVALID_CONFIG');
-    expect(room.configure(host.id, { mode: 'teams', idleSeconds: 120 })).toBeNull();
-    expect(room.config).toMatchObject({ mode: 'teams', idleSeconds: 120 });
+    // «Por equipos» ya no es un modo: es una variante que va aparte.
+    expect(room.configure(host.id, { mode: 'teams' })).toBe('INVALID_CONFIG');
+    expect(room.configure(host.id, { teams: 'sí' })).toBe('INVALID_CONFIG');
+    expect(room.configure(host.id, { mode: 'spicy', teams: true, idleSeconds: 120 })).toBeNull();
+    expect(room.config).toMatchObject({ mode: 'spicy', teams: true, idleSeconds: 120 });
   });
 
   it('dice por qué no se puede empezar', () => {
@@ -140,7 +144,7 @@ describe('sala', () => {
 
     room.join('Carlos');
     expect(room.startBlocker()).toBeNull();
-    room.configure(members[0]!.id, { mode: 'teams' });
+    room.configure(members[0]!.id, { teams: true });
     expect(room.startBlocker()).toBe('PLAYER_COUNT');
   });
 
@@ -177,11 +181,35 @@ describe('sala', () => {
   });
 });
 
+describe('modo y variante', () => {
+  it('el picante por equipos llega tal cual a la partida', () => {
+    const { room } = started(4, true, 'spicy');
+    expect(game(room).config).toEqual({ mode: 'spicy', teams: true, targetTrios: 2 });
+    expect(game(room).center).toEqual([]);
+    expect(game(room).players.every((p) => p.team !== null)).toBe(true);
+  });
+
+  it('el picante individual reparte con centro, como el sencillo', () => {
+    const { room } = started(3, false, 'spicy');
+    expect(game(room).config).toEqual({ mode: 'spicy', teams: false, targetTrios: 2 });
+    expect(game(room).center).toHaveLength(9);
+  });
+
+  it('cambiar el modo no toca la variante, ni al revés', () => {
+    const { room, members } = lobby(4);
+    room.configure(members[0]!.id, { teams: true });
+    room.configure(members[0]!.id, { mode: 'spicy' });
+    expect(room.config).toMatchObject({ mode: 'spicy', teams: true });
+    room.configure(members[0]!.id, { teams: false });
+    expect(room.config).toMatchObject({ mode: 'spicy', teams: false });
+  });
+});
+
 describe('equipos en la sala', () => {
   it('respeta las parejas elegidas y las sienta alternadas', () => {
     const { room, members } = lobby(4);
     const [ana, bea, carlos, dani] = members as [Member, Member, Member, Member];
-    room.configure(ana.id, { mode: 'teams' });
+    room.configure(ana.id, { teams: true });
     expect(room.chooseTeam(ana.id, 1)).toBeNull();
     expect(room.chooseTeam(carlos.id, 1)).toBeNull();
     expect(room.start(ana.id)).toBeNull();
@@ -199,7 +227,7 @@ describe('equipos en la sala', () => {
 
   it('un equipo no admite a un tercero ni números fuera de rango', () => {
     const { room, members } = lobby(4);
-    room.configure(members[0]!.id, { mode: 'teams' });
+    room.configure(members[0]!.id, { teams: true });
     expect(room.chooseTeam(members[0]!.id, 0)).toBeNull();
     expect(room.chooseTeam(members[1]!.id, 0)).toBeNull();
     expect(room.chooseTeam(members[2]!.id, 0)).toBe('TEAM_FULL');
@@ -212,7 +240,7 @@ describe('equipos en la sala', () => {
 
   it('un tercer equipo con cuatro jugadores impide empezar', () => {
     const { room, members } = lobby(4);
-    room.configure(members[0]!.id, { mode: 'teams' });
+    room.configure(members[0]!.id, { teams: true });
     room.chooseTeam(members[3]!.id, 2);
     expect(room.startBlocker()).toBe('TEAMS_UNBALANCED');
   });
@@ -292,7 +320,7 @@ describe('salvaguarda de inactividad', () => {
   });
 
   it('un intercambio sin responder se pasa solo, y las respuestas parciales no reinician la cuenta', () => {
-    const { room } = started(4, 'teams');
+    const { room } = started(4, true);
     expect(game(room).phase).toBe('teamSwap');
     const deadline = room.autoActionAt;
 
@@ -311,7 +339,7 @@ describe('salvaguarda de inactividad', () => {
 
   it('usa el plazo configurado en la sala', () => {
     const { room, members } = lobby(4);
-    room.configure(members[0]!.id, { mode: 'teams', idleSeconds: 30 });
+    room.configure(members[0]!.id, { teams: true, idleSeconds: 30 });
     room.start(members[0]!.id);
     vi.advanceTimersByTime(30_000);
     expect(game(room).phase).toBe('awaitingReveal');
@@ -378,7 +406,7 @@ describe('expulsar y marcharse', () => {
   });
 
   it('el bot del expulsado responde a los intercambios en equipos', () => {
-    const { room } = started(4, 'teams');
+    const { room } = started(4, true);
     const host = room.hostId;
     const victim = game(room).players.slice(0, 2).find((p) => p.id !== host)!.id;
     expect(room.kick(host, victim)).toBeNull();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { LogEntry, Winner } from '@trio/shared';
-import { playerView } from './fixtures';
+import type { LogEntry, Value, Winner } from '@trio/shared';
+import { playerView, teamsView } from './fixtures';
 import {
   autoActionText,
   blockerText,
@@ -9,6 +9,7 @@ import {
   logText,
   statusText,
   winnerText,
+  winningValues,
   type Names,
 } from './text';
 
@@ -28,9 +29,9 @@ describe('mensajes de error', () => {
   });
 
   it('explica qué falta para empezar', () => {
-    expect(blockerText('PLAYER_COUNT', 'simple')).toContain('entre 3 y 6');
-    expect(blockerText('PLAYER_COUNT', 'teams')).toContain('4 o 6');
-    expect(blockerText('TEAMS_UNBALANCED', 'teams')).toContain('dos jugadores');
+    expect(blockerText('PLAYER_COUNT', false)).toContain('entre 3 y 6');
+    expect(blockerText('PLAYER_COUNT', true)).toContain('4 o 6');
+    expect(blockerText('TEAMS_UNBALANCED', true)).toContain('dos jugadores');
   });
 });
 
@@ -142,6 +143,47 @@ describe('intercambio', () => {
     expect(logText({ type: 'swapResolved', team: 1, swapped: false }, names)).toBe(
       'El equipo 2 no intercambia.',
     );
+  });
+});
+
+describe('modo picante', () => {
+  const names = { p0: 'Ana', p1: 'Bea', p2: 'Carlos', p3: 'Dani' };
+  const withTrios = (trios: Record<string, Value[]>, patch = {}) => {
+    const base = playerView({ mode: 'spicy', targetTrios: 2, ...patch });
+    return { ...base, players: base.players.map((p) => ({ ...p, trios: trios[p.id] ?? [] })) };
+  };
+
+  it('dice por qué se ha ganado', () => {
+    const winner: Winner = { playerIds: ['p0'], team: null, reason: 'connected' };
+    expect(winnerText(winner, names)).toBe('¡Gana Ana con dos tríos conectados!');
+  });
+
+  it('sabe qué tríos te darían la partida', () => {
+    expect(winningValues(withTrios({ p0: [2] }))).toEqual([5, 9]);
+    // Si otro ya se llevó el de nueves, ese ya no puede salir.
+    expect(winningValues(withTrios({ p0: [2], p1: [9] }))).toEqual([5]);
+    expect(winningValues(withTrios({}))).toEqual([]);
+  });
+
+  it('por equipos cuentan también los tríos del compañero, no los de los rivales', () => {
+    const base = teamsView({ mode: 'spicy', targetTrios: 2 });
+    const view = {
+      ...base,
+      players: base.players.map((p) =>
+        p.id === 'p2' ? { ...p, trios: [1 as const] } : p.id === 'p1' ? { ...p, trios: [3 as const] } : p,
+      ),
+    };
+    expect(winningValues(view)).toEqual([6, 8]);
+  });
+
+  it('al empezar tu turno te recuerda qué te basta', () => {
+    expect(statusText(withTrios({ p0: [2] }), names).hint).toBe('Te basta un trío de 5 o de 9.');
+    expect(statusText(withTrios({ p0: [3, 12] }), names).hint).toBe('Te basta un trío de 4, de 5 o de 10.');
+  });
+
+  it('en sencillo no hay pista de conexiones', () => {
+    expect(winningValues(playerView())).toEqual([]);
+    expect(statusText(playerView(), names).hint).toContain('más baja o la más alta');
   });
 });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyAction, skipTurn } from './engine';
 import { legalActions } from './legal';
 import { ask, CONFIRM, handValues, must, reveal, stateFromLayout } from './testing';
+import type { Value } from './cards';
 import type { Action } from './types';
 
 describe('turno: fallo', () => {
@@ -236,7 +237,7 @@ describe('validación', () => {
   });
 
   it('sin centro (modo por equipos) no hay huecos que voltear', () => {
-    const s = stateFromLayout({ mode: 'teams', hands: [[1], [2], [3], [4]] });
+    const s = stateFromLayout({ teams: true, hands: [[1], [2], [3], [4]] });
     expect(applyAction(s, 'p0', reveal(0))).toEqual({ ok: false, error: 'INVALID_SLOT' });
   });
 });
@@ -282,5 +283,77 @@ describe('saltar turno (jugador expulsado)', () => {
     const snapshot = JSON.stringify(s);
     skipTurn(s);
     expect(JSON.stringify(s)).toBe(snapshot);
+  });
+});
+
+describe('modo picante', () => {
+  /** p0 va a formar un trío de `value` con sus tres cartas; `won` son los tríos que ya tiene. */
+  const formTrio = (value: Value, won: Value[], opts: { teams?: boolean } = {}) => {
+    const s = stateFromLayout({
+      mode: 'spicy',
+      teams: opts.teams,
+      hands: opts.teams
+        ? [[value, value, value], [1, 3], [8, 12], [10, 11]]
+        : [[value, value, value], [1, 3], [8, 12]],
+    });
+    s.trios['p0'] = won;
+    return must(must(must(s, 'p0', ask('p0', 'lowest')), 'p0', ask('p0', 'lowest')), 'p0', ask('p0', 'lowest'));
+  };
+
+  it('dos tríos conectados ganan al instante', () => {
+    const s = formTrio(5, [2]);
+    expect(s.phase).toBe('finished');
+    expect(s.winner).toEqual({ playerIds: ['p0'], team: null, reason: 'connected' });
+    expect(s.trios['p0']).toEqual([2, 5]);
+  });
+
+  it('también por el otro lado de la tabla: el 2 conecta con el 9', () => {
+    expect(formTrio(9, [2]).winner?.reason).toBe('connected');
+  });
+
+  it('dos tríos sin conexión no ganan', () => {
+    const s = formTrio(4, [2]);
+    expect(s.phase).toBe('awaitingReturn');
+    expect(s.winner).toBeNull();
+  });
+
+  it('ni siquiera tres: aquí lo que cuenta es la conexión, no el número', () => {
+    // El 2 conecta con 5 y 9, el 11 con 4, y el 3 con 4 y 10: ninguno entre sí.
+    const s = formTrio(3, [2, 11]);
+    expect(s.phase).toBe('awaitingReturn');
+    expect(s.winner).toBeNull();
+  });
+
+  it('el trío de sietes sigue ganando por sí solo', () => {
+    expect(formTrio(7, []).winner).toEqual({ playerIds: ['p0'], team: null, reason: 'sevens' });
+  });
+
+  it('por equipos, conecta con el trío del compañero', () => {
+    const s0 = stateFromLayout({
+      mode: 'spicy',
+      teams: true,
+      hands: [[9, 9, 9], [1, 3], [8, 12], [10, 11]],
+    });
+    s0.trios['p2'] = [2]; // p2 es compañero de p0
+    const s = must(must(must(s0, 'p0', ask('p0', 'lowest')), 'p0', ask('p0', 'lowest')), 'p0', ask('p0', 'lowest'));
+    expect(s.winner).toEqual({ playerIds: ['p0', 'p2'], team: 0, reason: 'connected' });
+  });
+
+  it('por equipos, el trío de un rival no conecta con el tuyo', () => {
+    const s0 = stateFromLayout({
+      mode: 'spicy',
+      teams: true,
+      hands: [[9, 9, 9], [1, 3], [8, 12], [10, 11]],
+    });
+    s0.trios['p1'] = [2]; // p1 es rival
+    const s = must(must(must(s0, 'p0', ask('p0', 'lowest')), 'p0', ask('p0', 'lowest')), 'p0', ask('p0', 'lowest'));
+    expect(s.winner).toBeNull();
+  });
+
+  it('en sencillo, dos tríos conectados no bastan: hacen falta tres', () => {
+    const s0 = stateFromLayout({ mode: 'simple', hands: [[5, 5, 5], [1, 3], [8, 12]] });
+    s0.trios['p0'] = [2];
+    const s = must(must(must(s0, 'p0', ask('p0', 'lowest')), 'p0', ask('p0', 'lowest')), 'p0', ask('p0', 'lowest'));
+    expect(s.winner).toBeNull();
   });
 });

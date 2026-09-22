@@ -49,7 +49,7 @@ export function Table({
   const orderOf = useRevealOrder(view);
   useGameSounds(view);
   // Por equipos los tríos cuentan por pareja: la meta se ve en el marcador.
-  const target = view.mode === 'teams' ? undefined : view.targetTrios;
+  const target = view.teams ? undefined : view.targetTrios;
 
   // Un aviso discreto al llegar el turno: se va a jugar mirando el móvil de reojo.
   useEffect(() => {
@@ -258,7 +258,7 @@ function Confetti() {
 
 /** El recuento final: por equipos si los hay, y si no, jugador a jugador. */
 function scoreboard(view: PlayerView): { who: string; ids: PlayerId[]; trios: Value[] }[] {
-  if (view.mode !== 'teams') {
+  if (!view.teams) {
     return view.players.map((p) => ({ who: p.name, ids: [p.id], trios: p.trios }));
   }
   return teamsOf(view).map(({ team, members }) => ({
