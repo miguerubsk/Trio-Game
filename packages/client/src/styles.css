@@ -494,13 +494,15 @@ h3 {
  * Con qué tríos conecta la carta, como en la baraja de verdad: un número en
  * cada esquina de arriba, cada uno en su propio color. Es el hueco que esta
  * carta guardaba para el modo picante; el 7 no conecta con nada y va limpio.
+ * Lo lleva toda carta que se voltea, también las pequeñas: ahí no bajan de
+ * 9 px, que es lo mínimo que se lee en un móvil.
  */
 .card__corner {
   position: absolute;
   top: calc(var(--w) * 0.11);
   font-family: var(--display);
   font-weight: 600;
-  font-size: calc(var(--h) * 0.14);
+  font-size: max(9px, calc(var(--h) * 0.14));
   line-height: 1;
   color: var(--c);
 }
@@ -511,11 +513,6 @@ h3 {
 
 .card__corner--right {
   right: calc(var(--w) * 0.13);
-}
-
-.card--xs .card__corner,
-.card--sm .card__corner {
-  display: none;
 }
 
 /* El trío de sietes gana la partida: su carta es oscura, con el número en oro. */
@@ -1843,10 +1840,6 @@ h3 {
   .table__side .trail .card {
     --w: 44px;
     --h: 64px;
-  }
-
-  .table__players .card--sm .card__corner {
-    display: block;
   }
 
   /* El tapete ocupa todo el ancho, como una mesa. */
