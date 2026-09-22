@@ -1,6 +1,6 @@
 {
   "name": "trio-game",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Trio: a private multiplayer web version of Kaya Miyano's card game",

@@ -28,6 +28,8 @@ The interface is in Spanish, because that's who I play with.
   their trios add up, and each pair may swap a card at the start and every time a rival team takes a
   trio.
 
+The full rules are in the game too, a tap away from the home screen, the room and the table.
+
 ### Bots
 
 If you're short of people, the host can **add bots** to the room and they count as players. The room

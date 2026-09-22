@@ -13,6 +13,7 @@ import {
 import { blockerText } from '../text';
 import { play } from '../sound/player';
 import { Avatar } from '../ui/Icons';
+import { RulesButton } from '../ui/Rules';
 import { SoundToggle } from '../ui/SoundToggle';
 
 interface Props {
@@ -137,7 +138,10 @@ export function Lobby({
 
       <div className="lobby__col">
         <section className="panel">
-          <h2>Partida</h2>
+          <div className="panel__head">
+            <h2>Partida</h2>
+            <RulesButton mode={room.config.mode} teams={room.config.teams} />
+          </div>
           <div className="modes" role="group" aria-label="Modo de juego">
             {MODES.map(({ mode, label }) => (
               <button

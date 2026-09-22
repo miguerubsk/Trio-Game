@@ -25,6 +25,15 @@ export function ArrowUp() {
   );
 }
 
+/** Un libro abierto: las reglas. Mismo trazo que el altavoz del sonido. */
+export function Book() {
+  return (
+    <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M10 5.6C8.4 4.4 6.2 4 3.5 4.2v11c2.7-.2 4.9.2 6.5 1.4 1.6-1.2 3.8-1.6 6.5-1.4v-11C13.8 4 11.6 4.4 10 5.6zM10 5.6v11" />
+    </svg>
+  );
+}
+
 /**
  * La inicial de un jugador en un círculo. Es solo decoración: el nombre ya
  * está escrito al lado, así que el lector de pantalla se la salta.
