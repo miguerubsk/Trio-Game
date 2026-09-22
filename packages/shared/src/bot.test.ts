@@ -86,16 +86,18 @@ function checkMemory(t: Table): void {
   }
 }
 
-const SCENARIOS: { mode: GameMode; players: number }[] = [
-  { mode: 'simple', players: 3 },
-  { mode: 'simple', players: 6 },
-  { mode: 'teams', players: 4 },
+const SCENARIOS: { mode: GameMode; teams: boolean; players: number }[] = [
+  { mode: 'simple', teams: false, players: 3 },
+  { mode: 'simple', teams: false, players: 6 },
+  { mode: 'simple', teams: true, players: 4 },
+  { mode: 'spicy', teams: false, players: 4 },
+  { mode: 'spicy', teams: true, players: 6 },
 ];
 
 describe('bot: memoria honrada', () => {
-  it.each(SCENARIOS)('$mode con $players jugadores: solo recuerda lo que ha visto', ({ mode, players }) => {
+  it.each(SCENARIOS)('$mode, equipos: $teams, $players jugadores: solo recuerda lo que ha visto', ({ mode, teams, players }) => {
     for (let game = 0; game < 4; game++) {
-      const state = createGame({ players: roster(players), mode, rng: mulberry32(100 + game) });
+      const state = createGame({ players: roster(players), mode, teams, rng: mulberry32(100 + game) });
       const t = table(state, 'hard', game);
       checkMemory(t);
       while (t.state.phase !== 'finished' && t.steps < 3_000) {
@@ -164,7 +166,7 @@ describe('bot: cómo juega', () => {
   });
 
   it('en el intercambio da una carta repetida, si la tiene', () => {
-    const s = createGame({ players: roster(4), mode: 'teams', rng: mulberry32(5) });
+    const s = createGame({ players: roster(4), mode: 'simple', teams: true, rng: mulberry32(5) });
     const bot = createBot('normal', mulberry32(2));
     const view = buildView(s, 'p0');
     const values = view.myHand.map((c) => c.value);
@@ -175,6 +177,55 @@ describe('bot: cómo juega', () => {
     const repeated = values.filter((v, i) => values.indexOf(v) !== i);
     if (repeated.length > 0) expect(repeated).toContain(chosen);
     else expect(chosen).toBe(values[0]);
+  });
+});
+
+describe('bot: modo picante', () => {
+  /**
+   * Todos han visto dos 4 y dos 5 del centro, y el bot (p0) tiene un 4 y un 5
+   * en los extremos de su mano: conoce dos tríos seguros. Ya tiene el de doses,
+   * que conecta con el 5, así que ese le da la partida.
+   */
+  const learned = (mode: GameMode): GameState => {
+    let s = stateFromLayout({
+      mode,
+      hands: [[4, 5], [1, 3], [6, 8]],
+      center: [4, 4, 5, 5, 10, 11],
+      current: 1,
+    });
+    s.trios['p0'] = [2];
+    s = must(must(s, 'p1', reveal(0)), 'p1', reveal(2));
+    s = must(s, 'p1', { type: 'CONFIRM_RETURN' });
+    s = must(must(s, 'p2', reveal(1)), 'p2', reveal(3));
+    return must(s, 'p2', { type: 'CONFIRM_RETURN' });
+  };
+
+  it('entre dos tríos seguros, va a por el que conecta y gana', () => {
+    const t = table(learned('spicy'), 'hard');
+    expect(t.state.currentPlayerIndex).toBe(0);
+    while (t.state.phase === 'awaitingReveal' && t.steps < 5) step(t);
+
+    expect(t.state.phase).toBe('finished');
+    expect(t.state.winner).toMatchObject({ playerIds: ['p0'], reason: 'connected' });
+    expect(t.state.trios['p0']).toEqual([2, 5]);
+  });
+
+  it('el trío de sietes va por delante de todo', () => {
+    let s = stateFromLayout({
+      mode: 'spicy',
+      hands: [[5, 7], [1, 3], [6, 8]],
+      center: [7, 7, 5, 5, 10, 11],
+      current: 1,
+    });
+    s.trios['p0'] = [2];
+    s = must(must(s, 'p1', reveal(0)), 'p1', reveal(2));
+    s = must(s, 'p1', { type: 'CONFIRM_RETURN' });
+    s = must(must(s, 'p2', reveal(1)), 'p2', reveal(3));
+    s = must(s, 'p2', { type: 'CONFIRM_RETURN' });
+
+    const t = table(s, 'hard');
+    step(t);
+    expect(valueOf(t.state, t.state.revealed[0]!.cardId)).toBe(7);
   });
 });
 

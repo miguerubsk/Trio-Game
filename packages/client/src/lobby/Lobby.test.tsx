@@ -64,11 +64,31 @@ describe('sala de espera', () => {
 describe('elegir modo y pareja', () => {
   const teamLobby = (patch = {}) => teamsRoom({ status: 'lobby', ...patch });
 
-  it('el anfitrión cambia de modo y ve qué implica cada uno', () => {
+  it('el anfitrión elige el modo y ve qué implica', () => {
+    const { onConfigure } = show(lobby());
+    expect(screen.getByText(/Gana quien junte 3 tríos/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Picante' }));
+    expect(onConfigure).toHaveBeenCalledWith({ mode: 'spicy' });
+  });
+
+  it('el modo picante explica que gana con dos tríos conectados', () => {
+    show(lobby({ config: { ...lobby().config, mode: 'spicy' } }));
+    expect(screen.getByText(/2 tríos conectados/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Picante' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('jugar por equipos es aparte del modo: se elige en la mesa', () => {
     const { onConfigure } = show(lobby());
     expect(screen.getByText(/cada uno a lo suyo/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Por equipos' }));
-    expect(onConfigure).toHaveBeenCalledWith({ mode: 'teams' });
+    expect(onConfigure).toHaveBeenCalledWith({ teams: true });
+  });
+
+  it('picante y por equipos a la vez', () => {
+    show(teamsRoom({ status: 'lobby', config: { ...teamsRoom().config, mode: 'spicy' } }));
+    expect(screen.getByRole('button', { name: 'Picante' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Por equipos' }).getAttribute('aria-pressed')).toBe('true');
+    expect(document.querySelector('.picker')).not.toBeNull();
   });
 
   it('quien no es anfitrión ve el modo pero no lo cambia', () => {

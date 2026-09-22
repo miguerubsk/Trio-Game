@@ -317,3 +317,49 @@ describe('mesa', () => {
     expect(screen.getAllByRole('button', { name: 'Expulsar' })).toHaveLength(1);
   });
 });
+
+describe('modo picante en la mesa', () => {
+  const corners = (card: HTMLElement) =>
+    [...card.querySelectorAll('.card__corner')].map((c) => ({
+      side: c.classList.contains('card__corner--left') ? 'izquierda' : 'derecha',
+      value: c.textContent,
+      colour: [...c.classList].find((k) => /^v\d+$/.test(k)),
+    }));
+
+  const spicyTable = () =>
+    playerView({
+      mode: 'spicy',
+      targetTrios: 2,
+      center: [{ state: 'up', value: 2 }, { state: 'up', value: 6 }, { state: 'down' }],
+    });
+
+  it('cada carta boca arriba lleva sus conexiones, una en cada esquina de arriba y en su color', () => {
+    show(spicyTable());
+    expect(corners(screen.getByLabelText(/^Hueco 1, carta 2/))).toEqual([
+      { side: 'izquierda', value: '5', colour: 'v5' },
+      { side: 'derecha', value: '9', colour: 'v9' },
+    ]);
+  });
+
+  it('con una sola conexión, va a la izquierda', () => {
+    show(spicyTable());
+    expect(corners(screen.getByLabelText(/^Hueco 2, carta 6/))).toEqual([
+      { side: 'izquierda', value: '1', colour: 'v1' },
+    ]);
+  });
+
+  it('se anuncian también para quien no ve la carta', () => {
+    show(spicyTable());
+    expect(screen.getByLabelText(/^Hueco 1, carta 2, .*conecta con 5 y 9/)).toBeTruthy();
+  });
+
+  it('una carta boca abajo no lleva esquinas: delatarían el número', () => {
+    show(spicyTable());
+    expect(corners(screen.getByLabelText(/^Hueco 3, carta boca abajo/))).toEqual([]);
+  });
+
+  it('en sencillo las esquinas no se pintan', () => {
+    const { container } = show(playerView({ center: [{ state: 'up', value: 2 }, { state: 'down' }] }));
+    expect(container.querySelectorAll('.card__corner')).toHaveLength(0);
+  });
+});

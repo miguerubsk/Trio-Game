@@ -1,14 +1,15 @@
-import type {
-  ClosedReason,
-  ErrorCode,
-  GameMode,
-  LogEntry,
-  PlayerId,
-  PlayerView,
-  RevealFrom,
-  RoomErrorCode,
-  StartBlocker,
-  Winner,
+import {
+  CONNECTIONS,
+  type ClosedReason,
+  type ErrorCode,
+  type LogEntry,
+  type PlayerId,
+  type PlayerView,
+  type RevealFrom,
+  type RoomErrorCode,
+  type StartBlocker,
+  type Value,
+  type Winner,
 } from '@trio/shared';
 
 /** Nombres por id, para no repetir la búsqueda en cada línea. */
@@ -60,11 +61,9 @@ export function closedText(reason: ClosedReason): string | null {
   return null;
 }
 
-export function blockerText(blocker: StartBlocker, mode: GameMode): string {
+export function blockerText(blocker: StartBlocker, teams: boolean): string {
   if (blocker === 'TEAMS_UNBALANCED') return 'Cada equipo necesita exactamente dos jugadores.';
-  return mode === 'teams'
-    ? 'En modo por equipos hacen falta 4 o 6 jugadores.'
-    : 'Hacen falta entre 3 y 6 jugadores.';
+  return teams ? 'Por equipos hacen falta 4 o 6 jugadores.' : 'Hacen falta entre 3 y 6 jugadores.';
 }
 
 export function winnerText(winner: Winner, names: Names): string {
@@ -72,10 +71,35 @@ export function winnerText(winner: Winner, names: Names): string {
     winner.playerIds.length > 1
       ? `el equipo de ${winner.playerIds.map((id) => nameOf(names, id)).join(' y ')}`
       : nameOf(names, winner.playerIds[0] ?? '');
-  return winner.reason === 'sevens'
-    ? `¡Gana ${who} con el trío de sietes!`
-    : `¡Gana ${who}!`;
+  if (winner.reason === 'sevens') return `¡Gana ${who} con el trío de sietes!`;
+  if (winner.reason === 'connected') return `¡Gana ${who} con dos tríos conectados!`;
+  return `¡Gana ${who}!`;
 }
+
+/** Los tríos que cuentan para ti: los tuyos, o los de tu pareja también. */
+function sideTrios(view: PlayerView): Value[] {
+  const me = view.players.find((p) => p.id === view.me);
+  if (!me) return [];
+  if (!view.teams || me.team === null) return me.trios;
+  return view.players.filter((p) => p.team === me.team).flatMap((p) => p.trios);
+}
+
+/**
+ * En picante, los tríos que te darían la partida por conectar con uno que ya
+ * tienes. Sin contar los que ya se ha llevado alguien, que no vuelven a salir.
+ */
+export function winningValues(view: PlayerView): Value[] {
+  if (view.mode !== 'spicy') return [];
+  const taken = new Set(view.players.flatMap((p) => p.trios));
+  const wanted = new Set(sideTrios(view).flatMap((v) => CONNECTIONS[v]));
+  return [...wanted].filter((v) => !taken.has(v)).sort((a, b) => a - b);
+}
+
+/** «de 5», «de 5 o de 9», «de 3, de 5 o de 9». */
+const orList = (values: Value[]): string => {
+  const parts = values.map((v) => `de ${v}`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} o ${parts.at(-1)}` : (parts[0] ?? '');
+};
 
 /** De dónde salió una carta volteada, tal como se cuenta en el registro. */
 function sourceText(from: RevealFrom, names: Names, actor: PlayerId): string {
@@ -153,9 +177,14 @@ export function statusText(view: PlayerView, names: Names): Status {
       : { main: `Turno de ${current}`, hint: `Lleva dos ${value}: le falta uno.` };
   }
   if (mine && value !== undefined) return { main: 'Te toca', hint: `Busca otro ${value}.` };
+  if (!mine) return { main: `Turno de ${current}` };
+  // En picante, lo que más ayuda al empezar el turno es saber qué trío te da la partida.
+  const winners = winningValues(view);
   return {
-    main: mine ? 'Te toca' : `Turno de ${current}`,
-    hint: mine ? 'Voltea una carta del centro o pide la más baja o la más alta.' : undefined,
+    main: 'Te toca',
+    hint: winners.length
+      ? `Te basta un trío ${orList(winners)}.`
+      : 'Voltea una carta del centro o pide la más baja o la más alta.',
   };
 }
 

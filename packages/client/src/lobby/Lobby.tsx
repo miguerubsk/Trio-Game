@@ -44,16 +44,31 @@ const takeoverLabel = (seconds: number): string => {
   return seconds < 60 ? `${seconds} segundos` : `${seconds / 60} minuto${seconds > 60 ? 's' : ''}`;
 };
 
+/** Cómo se gana. Cualquiera de los dos se juega también por equipos. */
 const MODES: { mode: GameMode; label: string; blurb: string }[] = [
   {
     mode: 'simple',
     label: 'Sencillo',
-    blurb: 'De 3 a 6 jugadores, cada uno a lo suyo. Gana quien junte 3 tríos.',
+    blurb: 'Gana quien junte 3 tríos, o el trío de sietes.',
   },
   {
-    mode: 'teams',
+    mode: 'spicy',
+    label: 'Picante',
+    blurb:
+      'Gana quien junte 2 tríos conectados, o el trío de sietes. Con qué conecta cada número lo dicen las esquinas de arriba de la carta.',
+  },
+];
+
+const TABLES: { teams: boolean; label: string; blurb: string }[] = [
+  {
+    teams: false,
+    label: 'Individual',
+    blurb: 'De 3 a 6 jugadores, cada uno a lo suyo, con cartas en el centro.',
+  },
+  {
+    teams: true,
     label: 'Por equipos',
-    blurb: 'Por parejas, 4 o 6 jugadores. Sin cartas en el centro y con intercambios entre compañeros.',
+    blurb: 'Por parejas, 4 o 6 jugadores. Sin cartas en el centro, los tríos de la pareja suman y hay intercambios entre compañeros.',
   },
 ];
 
@@ -139,7 +154,23 @@ export function Lobby({
         </div>
         <p className="muted">{MODES.find((m) => m.mode === room.config.mode)?.blurb}</p>
 
-        {room.config.mode === 'teams' && <TeamPicker room={room} onChooseTeam={onChooseTeam} />}
+        <div className="modes" role="group" aria-label="Mesa">
+          {TABLES.map(({ teams, label }) => (
+            <button
+              key={label}
+              type="button"
+              className={`btn ${room.config.teams === teams ? 'btn--primary' : ''}`}
+              aria-pressed={room.config.teams === teams}
+              disabled={!isHost}
+              onClick={() => onConfigure({ teams })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="muted">{TABLES.find((m) => m.teams === room.config.teams)?.blurb}</p>
+
+        {room.config.teams && <TeamPicker room={room} onChooseTeam={onChooseTeam} />}
 
         <label className="field">
           <span>Memoria de los bots</span>
@@ -197,7 +228,7 @@ export function Lobby({
           >
             Empezar partida
           </button>
-          {room.startBlocker && <p className="hint">{blockerText(room.startBlocker, room.config.mode)}</p>}
+          {room.startBlocker && <p className="hint">{blockerText(room.startBlocker, room.config.teams)}</p>}
         </>
       ) : (
         <p className="hint">Esperando a que {hostName} empiece la partida.</p>

@@ -21,7 +21,10 @@ export const IDLE_SECONDS = { min: 30, max: 600, default: 90 } as const;
 export const BOT_TAKEOVER_SECONDS = { min: 15, max: 600, default: 60, never: 0 } as const;
 
 export interface RoomConfig {
+  /** Cómo se gana: tres tríos (sencillo) o dos tríos conectados (picante). */
   mode: GameMode;
+  /** Variante por equipos, que se combina con cualquiera de los dos modos. */
+  teams: boolean;
   idleSeconds: number;
   /** Cuánta memoria tienen los bots de la sala. */
   botLevel: BotLevel;

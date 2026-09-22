@@ -508,13 +508,32 @@ h3 {
   display: none;
 }
 
-/* Reservado para los números pequeños del modo Picante: la esquina queda libre. */
+/*
+ * Modo picante: con qué tríos conecta la carta, un número en cada esquina de
+ * arriba y en su propio color. Mismo tamaño y margen que el número del pie,
+ * en espejo, para que la carta siga pareciendo de baraja.
+ */
 .card__corner {
   position: absolute;
-  top: 3px;
-  left: 4px;
-  width: 30%;
-  height: 18%;
+  top: calc(var(--w) * 0.11);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: calc(var(--h) * 0.14);
+  line-height: 1;
+  color: var(--c);
+}
+
+.card__corner--left {
+  left: calc(var(--w) * 0.13);
+}
+
+.card__corner--right {
+  right: calc(var(--w) * 0.13);
+}
+
+.card--xs .card__corner,
+.card--sm .card__corner {
+  display: none;
 }
 
 /* El trío de sietes gana la partida: su carta es oscura, con el número en oro. */
@@ -1829,7 +1848,8 @@ h3 {
     --h: 64px;
   }
 
-  .table__players .card--sm .card__front::after {
+  .table__players .card--sm .card__front::after,
+  .table__players .card--sm .card__corner {
     display: block;
   }
 

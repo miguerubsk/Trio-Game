@@ -1,5 +1,11 @@
-import { useEffect, useState, type CSSProperties } from 'react';
-import type { Value } from '@trio/shared';
+import { createContext, useContext, useEffect, useState, type CSSProperties } from 'react';
+import { CONNECTIONS, type Value } from '@trio/shared';
+
+/**
+ * Si la mesa juega en modo picante. Lo pone la mesa una vez, y cada carta lo
+ * lee para pintar en sus esquinas con qué tríos conecta.
+ */
+export const SpicyContext = createContext(false);
 
 /** Las dos deben coincidir con styles.css: el volteo y lo que se retrasa cada carta. */
 const FLIP_MS = 520;
@@ -67,6 +73,9 @@ export function Card({
 }: Props) {
   const shown = useFlippingValue(value, order);
   const faceUp = value !== null;
+  const spicy = useContext(SpicyContext);
+  // Las conexiones salen del número, así que solo se ven cuando se ve el número.
+  const links = spicy && shown !== null ? CONNECTIONS[shown] : [];
   // Está girándose boca abajo: ya no tiene valor, pero todavía se le ve la cara.
   const returning = !faceUp && shown !== null;
   const classes = ['card', `card--${size}`];
@@ -84,6 +93,7 @@ export function Card({
     faceUp ? `carta ${value}` : 'carta boca abajo',
     exposed ? 'a la vista de todos' : null,
     mark === 'trio' ? 'forma trío' : mark === 'miss' ? 'no coincide' : null,
+    spicy && faceUp && links.length ? `conecta con ${links.join(' y ')}` : null,
     fresh ? 'te la acaba de dar tu compañero' : null,
   ]
     .filter(Boolean)
@@ -99,8 +109,16 @@ export function Card({
         {/* El número del pie, como en una baraja, lo pinta el CSS con `data-value`. */}
         <span className="card__face card__front" data-value={shown ?? undefined}>
           <span className="card__value">{shown}</span>
-        {/* Hueco de los números pequeños del futuro modo Picante. */}
-          <span className="card__corner" aria-hidden="true" />
+          {/* Modo picante: con qué tríos conecta, uno en cada esquina de arriba. */}
+          {links.map((link, i) => (
+            <span
+              key={link}
+              className={`card__corner card__corner--${i === 0 ? 'left' : 'right'} ${valueClass(link)}`}
+              aria-hidden="true"
+            >
+              {link}
+            </span>
+          ))}
         </span>
       </span>
     </span>

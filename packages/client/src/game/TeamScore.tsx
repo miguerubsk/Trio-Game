@@ -14,7 +14,7 @@ export function teamsOf(view: PlayerView): { team: number; members: PublicPlayer
  * En escritorio ocupa el tapete, que en este modo no tiene cartas.
  */
 export function TeamScore({ view }: { view: PlayerView }) {
-  if (view.mode !== 'teams') return null;
+  if (!view.teams) return null;
 
   return (
     <section className="teams" aria-label="Marcador por equipos">

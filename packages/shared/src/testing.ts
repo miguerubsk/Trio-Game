@@ -1,10 +1,12 @@
-import type { Card, GameMode, Value } from './cards';
+import { CONNECTIONS, TRIOS_TO_WIN, type Card, type GameMode, type Value } from './cards';
 import { applyAction } from './engine';
 import { handOf, sortHand, valueOf } from './helpers';
 import type { Action, CardId, GameState, Player, PlayerId } from './types';
 
 export interface Layout {
   mode?: GameMode;
+  /** Variante por equipos: los equipos se asignan alternando asientos. */
+  teams?: boolean;
   /** Valores de la mano de cada jugador, por asiento. Los ids son p0, p1… */
   hands: Value[][];
   center?: Value[];
@@ -15,10 +17,11 @@ export interface Layout {
 /** Monta un estado a medida, listo para revelar y sin repartir. Solo para tests. */
 export function stateFromLayout(layout: Layout): GameState {
   const mode = layout.mode ?? 'simple';
+  const teams = layout.teams ?? false;
   const cards: Card[] = [];
   const add = (value: Value): CardId => {
     const id = cards.length;
-    cards.push({ id, value, secondary: [] });
+    cards.push({ id, value, secondary: CONNECTIONS[value] });
     return id;
   };
 
@@ -26,7 +29,7 @@ export function stateFromLayout(layout: Layout): GameState {
   const players: Player[] = layout.hands.map((_, seat) => ({
     id: `p${seat}`,
     name: `Jugador ${seat}`,
-    team: mode === 'teams' ? seat % teamCount : null,
+    team: teams ? seat % teamCount : null,
   }));
 
   const hands: GameState['hands'] = {};
@@ -38,7 +41,7 @@ export function stateFromLayout(layout: Layout): GameState {
   const center = (layout.center ?? []).map(add);
 
   const state: GameState = {
-    config: { mode, targetTrios: layout.targetTrios ?? 3 },
+    config: { mode, teams, targetTrios: layout.targetTrios ?? TRIOS_TO_WIN[mode] },
     cards,
     players,
     hands,

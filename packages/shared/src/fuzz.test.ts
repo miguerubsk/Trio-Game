@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { GameMode, Value } from './cards';
+import { connected, type GameMode, type Value } from './cards';
 import { applyAction } from './engine';
-import { handOf, hiddenIndex, triosOfSide, valueOf } from './helpers';
+import { handOf, hiddenIndex, trioValuesOfSide, valueOf } from './helpers';
 import { legalActions } from './legal';
 import { mulberry32, type Rng } from './rng';
 import { createGame } from './setup';
@@ -54,7 +54,7 @@ function checkInvariants(s: GameState): void {
   check((s.swap !== null) === (s.phase === 'teamSwap'), 'swap incoherente con la fase');
   check((s.winner !== null) === (s.phase === 'finished'), 'winner incoherente con la fase');
   check(s.currentPlayerIndex >= 0 && s.currentPlayerIndex < s.players.length, 'turno fuera de rango');
-  if (s.config.mode === 'teams') check(s.center.length === 0, 'hay centro en modo por equipos');
+  if (s.config.teams) check(s.center.length === 0, 'hay centro en la variante por equipos');
 
   const values = s.revealed.map((r) => valueOf(s, r.cardId));
   const allEqual = values.every((v) => v === values[0]);
@@ -68,11 +68,25 @@ function checkInvariants(s: GameState): void {
     else check(!allEqual, 'fallo con todas las cartas iguales');
   }
 
+  // Nadie gana sin motivo, y nadie se queda sin ganar teniendo motivo: se
+  // comprueban las dos cosas en cada paso.
+  const sides = s.players.map((p) => trioValuesOfSide(s, p.id));
+  const hasPair = (won: Value[]) => won.some((a) => won.some((b) => connected(a, b)));
   if (s.winner) {
-    const anySevens = s.winner.playerIds.some((id) => (s.trios[id] ?? []).includes(7));
-    const enough = triosOfSide(s, s.winner.playerIds[0] as PlayerId) >= s.config.targetTrios;
-    check(anySevens || enough, 'ganador sin trío de sietes ni tríos suficientes');
+    const won = trioValuesOfSide(s, s.winner.playerIds[0] as PlayerId);
+    const justified =
+      s.winner.reason === 'sevens'
+        ? won.includes(7)
+        : s.winner.reason === 'connected'
+          ? s.config.mode === 'spicy' && hasPair(won)
+          : s.config.mode === 'simple' && won.length >= s.config.targetTrios;
+    check(justified, `victoria sin motivo: ${JSON.stringify(s.winner)} con ${won.join(',')}`);
+  } else if (s.config.mode === 'spicy') {
+    check(!sides.some(hasPair), 'dos tríos conectados y la partida sigue');
+  } else {
+    check(sides.every((won) => won.length < s.config.targetTrios), 'tríos de sobra y la partida sigue');
   }
+  check(!sides.some((won) => won.includes(7)) || s.winner !== null, 'trío de sietes y la partida sigue');
 }
 
 /** El registro de la vista solo lleva el valor de las cartas que siguen boca arriba. */
@@ -173,23 +187,27 @@ function pickAction(s: GameState, rng: Rng, smart: number): { actor: PlayerId; a
   return { actor, action: (pool[Math.floor(rng() * pool.length)] as { action: Action }).action };
 }
 
-const SCENARIOS: { mode: GameMode; players: number }[] = [
-  { mode: 'simple', players: 3 },
-  { mode: 'simple', players: 4 },
-  { mode: 'simple', players: 5 },
-  { mode: 'simple', players: 6 },
-  { mode: 'teams', players: 4 },
-  { mode: 'teams', players: 6 },
+const SCENARIOS: { mode: GameMode; teams: boolean; players: number }[] = [
+  { mode: 'simple', teams: false, players: 3 },
+  { mode: 'simple', teams: false, players: 4 },
+  { mode: 'simple', teams: false, players: 5 },
+  { mode: 'simple', teams: false, players: 6 },
+  { mode: 'simple', teams: true, players: 4 },
+  { mode: 'simple', teams: true, players: 6 },
+  { mode: 'spicy', teams: false, players: 3 },
+  { mode: 'spicy', teams: false, players: 6 },
+  { mode: 'spicy', teams: true, players: 4 },
+  { mode: 'spicy', teams: true, players: 6 },
 ];
 
 describe('fuzz: partidas completas al azar', () => {
-  it.each(SCENARIOS)('$mode con $players jugadores', ({ mode, players }) => {
+  it.each(SCENARIOS)('$mode, equipos: $teams, $players jugadores', ({ mode, teams, players }) => {
     let finished = 0;
     const seen: Record<string, number> = {};
     for (let game = 0; game < GAMES_PER_SCENARIO; game++) {
-      const rng = mulberry32(players * 1000 + game + (mode === 'teams' ? 500 : 0));
+      const rng = mulberry32(players * 1000 + game + (teams ? 500 : 0) + (mode === 'spicy' ? 250 : 0));
       const smart = [0.95, 0.7, 0.95][game % 3] as number;
-      let s = createGame({ players: roster(players), mode, rng });
+      let s = createGame({ players: roster(players), mode, teams, rng });
 
       for (let step = 0; step < MAX_STEPS; step++) {
         checkInvariants(s);
@@ -201,7 +219,12 @@ describe('fuzz: partidas completas al azar', () => {
         const result = applyAction(s, actor, action);
         check(result.ok, `acción legal rechazada: ${JSON.stringify(action)} → ${!result.ok && result.error}`);
         for (const e of result.events) {
-          const key = e.type === 'swapResolved' ? `swap:${e.swapped}` : e.type;
+          const key =
+            e.type === 'swapResolved'
+              ? `swap:${e.swapped}`
+              : e.type === 'gameOver'
+                ? `win:${e.winner.reason}`
+                : e.type;
           seen[key] = (seen[key] ?? 0) + 1;
         }
         seen['steps'] = (seen['steps'] ?? 0) + 1;
@@ -218,9 +241,12 @@ describe('fuzz: partidas completas al azar', () => {
     expect(seen['steps'] ?? 0).toBeGreaterThan(200);
     expect(seen['trio'] ?? 0).toBeGreaterThan(10);
     expect(seen['mismatch'] ?? 0).toBeGreaterThan(10);
-    if (mode === 'teams') {
+    if (teams) {
       expect(seen['swap:true'] ?? 0).toBeGreaterThan(5);
       expect(seen['swap:false'] ?? 0).toBeGreaterThan(5);
     }
+    // Que el picante gane de verdad por conexión, no solo por los sietes.
+    if (mode === 'spicy') expect(seen['win:connected'] ?? 0).toBeGreaterThan(0);
+    else expect(seen['win:trios'] ?? 0).toBeGreaterThan(0);
   }, 120_000);
 });

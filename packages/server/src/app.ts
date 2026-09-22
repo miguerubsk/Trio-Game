@@ -160,6 +160,7 @@ export function createApp(opts: AppOptions = {}): App {
     onSeated('room:config', true, (room, me, req) =>
       room.configure(me.id, {
         mode: field(req, 'mode'),
+        teams: field(req, 'teams'),
         idleSeconds: field(req, 'idleSeconds'),
         botLevel: field(req, 'botLevel'),
         botTakeoverSeconds: field(req, 'botTakeoverSeconds'),

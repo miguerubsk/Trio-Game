@@ -16,6 +16,7 @@ export function playerView(patch: Partial<PlayerView> = {}): PlayerView {
   return {
     me: 'p0',
     mode: 'simple',
+    teams: false,
     targetTrios: 3,
     phase: 'awaitingReveal',
     outcome: null,
@@ -42,7 +43,7 @@ export function roomView(patch: Partial<RoomView> = {}): RoomView {
     me: 'p0',
     hostId: 'p0',
     status: 'playing',
-    config: { mode: 'simple', idleSeconds: 90, botLevel: 'normal', botTakeoverSeconds: 60 },
+    config: { mode: 'simple', teams: false, idleSeconds: 90, botLevel: 'normal', botTakeoverSeconds: 60 },
     members: players.map((p) => ({
       id: p.id,
       name: p.name,
@@ -68,7 +69,7 @@ const teamPlayers: PublicPlayerView[] = [
 /** Cuatro jugadores por parejas: Ana y Carlos contra Bea y Dani. Sin centro. */
 export function teamsView(patch: Partial<PlayerView> = {}): PlayerView {
   return playerView({
-    mode: 'teams',
+    teams: true,
     players: teamPlayers,
     center: [],
     legal: { reveal: { centerSlots: [], targets: ['p0', 'p1', 'p2', 'p3'] }, confirm: false, swap: null },
@@ -79,7 +80,7 @@ export function teamsView(patch: Partial<PlayerView> = {}): PlayerView {
 /** La sala equivalente, ya en modo por equipos. */
 export function teamsRoom(patch: Partial<RoomView> = {}): RoomView {
   return roomView({
-    config: { mode: 'teams', idleSeconds: 90, botLevel: 'normal', botTakeoverSeconds: 60 },
+    config: { mode: 'simple', teams: true, idleSeconds: 90, botLevel: 'normal', botTakeoverSeconds: 60 },
     members: teamPlayers.map((p) => ({
       id: p.id,
       name: p.name,

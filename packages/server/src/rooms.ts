@@ -81,6 +81,7 @@ export class Room {
   status: 'lobby' | 'playing' = 'lobby';
   config: RoomConfig = {
     mode: 'simple',
+    teams: false,
     idleSeconds: IDLE_SECONDS.default,
     botLevel: 'normal',
     botTakeoverSeconds: BOT_TAKEOVER_SECONDS.default,
@@ -187,15 +188,25 @@ export class Room {
 
   configure(
     actor: PlayerId,
-    patch: { mode?: unknown; idleSeconds?: unknown; botLevel?: unknown; botTakeoverSeconds?: unknown },
+    patch: {
+      mode?: unknown;
+      teams?: unknown;
+      idleSeconds?: unknown;
+      botLevel?: unknown;
+      botTakeoverSeconds?: unknown;
+    },
   ): Failure | null {
     if (actor !== this.hostId) return 'NOT_HOST';
     if (this.status !== 'lobby') return 'GAME_IN_PROGRESS';
 
     const next = { ...this.config };
     if (patch.mode !== undefined) {
-      if (patch.mode !== 'simple' && patch.mode !== 'teams') return 'INVALID_CONFIG';
+      if (patch.mode !== 'simple' && patch.mode !== 'spicy') return 'INVALID_CONFIG';
       next.mode = patch.mode;
+    }
+    if (patch.teams !== undefined) {
+      if (typeof patch.teams !== 'boolean') return 'INVALID_CONFIG';
+      next.teams = patch.teams;
     }
     if (patch.idleSeconds !== undefined) {
       const s = patch.idleSeconds;
@@ -280,8 +291,8 @@ export class Room {
 
   startBlocker(): StartBlocker | null {
     const count = this.members.length;
-    if (!dealSpec(this.config.mode, count)) return 'PLAYER_COUNT';
-    if (this.config.mode === 'teams' && this.members.some((m) => m.team !== null && m.team >= count / 2)) {
+    if (!dealSpec(this.config.teams, count)) return 'PLAYER_COUNT';
+    if (this.config.teams && this.members.some((m) => m.team !== null && m.team >= count / 2)) {
       return 'TEAMS_UNBALANCED';
     }
     return null;
@@ -294,10 +305,11 @@ export class Room {
     if (this.status !== 'lobby') return 'GAME_IN_PROGRESS';
     if (this.startBlocker()) return 'CANNOT_START';
 
-    const seats = this.config.mode === 'teams' ? this.seatTeams() : [...this.members];
+    const seats = this.config.teams ? this.seatTeams() : [...this.members];
     this.game = createGame({
       players: seats.map((m) => ({ id: m.id, name: m.name })),
       mode: this.config.mode,
+      teams: this.config.teams,
       rng: this.deps.rng,
     });
     this.status = 'playing';

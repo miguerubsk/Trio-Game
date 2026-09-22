@@ -53,6 +53,7 @@ export interface SwapView {
 export interface PlayerView {
   me: PlayerId;
   mode: GameMode;
+  teams: boolean;
   targetTrios: number;
   phase: Phase;
   outcome: Outcome | null;
@@ -77,6 +78,7 @@ export function buildView(s: GameState, viewerId: PlayerId): PlayerView {
   return {
     me: viewerId,
     mode: s.config.mode,
+    teams: s.config.teams,
     targetTrios: s.config.targetTrios,
     phase: s.phase,
     outcome: s.outcome,

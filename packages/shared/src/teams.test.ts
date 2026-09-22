@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEAL_TABLE, fullDeckValues, type GameMode, type Value } from './cards';
+import { dealSpec, fullDeckValues, type Value } from './cards';
 import { applyAction } from './engine';
 import { legalActions } from './legal';
 import { mulberry32 } from './rng';
@@ -19,18 +19,18 @@ const roster = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `p${i}`
 const sorted = (values: number[]) => [...values].sort((a, b) => a - b);
 
 describe('reparto', () => {
-  const combos: [GameMode, number][] = [
-    ['simple', 3],
-    ['simple', 4],
-    ['simple', 5],
-    ['simple', 6],
-    ['teams', 4],
-    ['teams', 6],
+  const combos: [string, boolean, number][] = [
+    ['individual', false, 3],
+    ['individual', false, 4],
+    ['individual', false, 5],
+    ['individual', false, 6],
+    ['por equipos', true, 4],
+    ['por equipos', true, 6],
   ];
 
-  it.each(combos)('%s con %i jugadores reparte las 36 cartas sin repetir', (mode, n) => {
-    const s = createGame({ players: roster(n), mode, rng: mulberry32(n) });
-    const spec = DEAL_TABLE[mode][n];
+  it.each(combos)('%s con %i jugadores reparte las 36 cartas sin repetir', (_label, teams, n) => {
+    const s = createGame({ players: roster(n), mode: 'simple', teams, rng: mulberry32(n) });
+    const spec = dealSpec(teams, n);
     expect(spec).toBeDefined();
 
     for (const p of s.players) expect(s.hands[p.id]).toHaveLength(spec?.handSize ?? -1);
@@ -42,8 +42,8 @@ describe('reparto', () => {
     expect(sorted(s.cards.map((c) => c.value))).toEqual(fullDeckValues());
   });
 
-  it.each(combos)('%s con %i jugadores: manos ordenadas de menor a mayor', (mode, n) => {
-    const s = createGame({ players: roster(n), mode, rng: mulberry32(100 + n) });
+  it.each(combos)('%s con %i jugadores: manos ordenadas de menor a mayor', (_label, teams, n) => {
+    const s = createGame({ players: roster(n), mode: 'simple', teams, rng: mulberry32(100 + n) });
     for (const p of s.players) {
       const values = handValues(s, p.id);
       expect(values).toEqual(sorted(values));
@@ -73,13 +73,13 @@ describe('reparto', () => {
     }
   });
 
-  it.each<[GameMode, number]>([
-    ['simple', 2],
-    ['simple', 7],
-    ['teams', 3],
-    ['teams', 5],
-  ])('rechaza %s con %i jugadores', (mode, n) => {
-    expect(() => createGame({ players: roster(n), mode, rng: mulberry32(1) })).toThrow();
+  it.each<[string, boolean, number]>([
+    ['individual', false, 2],
+    ['individual', false, 7],
+    ['por equipos', true, 3],
+    ['por equipos', true, 5],
+  ])('rechaza %s con %i jugadores', (_label, teams, n) => {
+    expect(() => createGame({ players: roster(n), mode: 'simple', teams, rng: mulberry32(1) })).toThrow();
   });
 
   it('rechaza ids de jugador repetidos', () => {
@@ -90,9 +90,9 @@ describe('reparto', () => {
 
 describe('equipos: asientos', () => {
   it('los compañeros se sientan alternados', () => {
-    const four = createGame({ players: roster(4), mode: 'teams', rng: mulberry32(1) });
+    const four = createGame({ players: roster(4), mode: 'simple', teams: true, rng: mulberry32(1) });
     expect(four.players.map((p) => p.team)).toEqual([0, 1, 0, 1]);
-    const six = createGame({ players: roster(6), mode: 'teams', rng: mulberry32(1) });
+    const six = createGame({ players: roster(6), mode: 'simple', teams: true, rng: mulberry32(1) });
     expect(six.players.map((p) => p.team)).toEqual([0, 1, 2, 0, 1, 2]);
   });
 
@@ -103,7 +103,7 @@ describe('equipos: asientos', () => {
 });
 
 describe('equipos: intercambio inicial', () => {
-  const fresh = () => createGame({ players: roster(4), mode: 'teams', rng: mulberry32(11) });
+  const fresh = () => createGame({ players: roster(4), mode: 'simple', teams: true, rng: mulberry32(11) });
 
   it('arranca con una ronda de intercambio para todas las parejas', () => {
     const s = fresh();
@@ -171,7 +171,7 @@ describe('equipos: intercambio inicial', () => {
 describe('equipos: intercambio tras un trío', () => {
   const layout = () =>
     stateFromLayout({
-      mode: 'teams',
+      teams: true,
       hands: [[4, 8, 9], [4, 5, 6], [4, 7, 12], [1, 2, 3]],
     });
   const formTrio = (s = layout()) =>
@@ -210,7 +210,7 @@ describe('equipos: intercambio tras un trío', () => {
 
   it('a seis jugadores intercambian los otros dos equipos', () => {
     const six = stateFromLayout({
-      mode: 'teams',
+      teams: true,
       hands: [[4, 8, 9], [4, 5, 6], [4, 7, 12], [1, 2, 3], [1, 2, 3], [1, 2, 3]],
     });
     let s = must(formTrio(six), 'p0', CONFIRM);
@@ -223,7 +223,7 @@ describe('equipos: intercambio tras un trío', () => {
   });
 
   it('una pareja con un miembro sin cartas se salta sola', () => {
-    const s0 = stateFromLayout({ mode: 'teams', hands: [[4, 8, 9], [4, 5, 6], [4, 7, 12], []] });
+    const s0 = stateFromLayout({ teams: true, hands: [[4, 8, 9], [4, 5, 6], [4, 7, 12], []] });
     const s = must(formTrio(s0), 'p0', CONFIRM);
     expect(s.phase).toBe('awaitingReveal');
     expect(s.swap).toBeNull();
@@ -236,7 +236,7 @@ describe('equipos: intercambio tras un trío', () => {
 describe('equipos: victoria', () => {
   const layout = () =>
     stateFromLayout({
-      mode: 'teams',
+      teams: true,
       hands: [[4, 8, 9], [4, 5, 6], [4, 7, 12], [1, 2, 3]],
     });
   const formTrio = (s: ReturnType<typeof layout>) =>
@@ -258,7 +258,7 @@ describe('equipos: victoria', () => {
 
   it('el trío de sietes gana para todo el equipo', () => {
     const s0 = stateFromLayout({
-      mode: 'teams',
+      teams: true,
       hands: [[1, 2, 7], [3, 4, 7], [5, 6, 7], [8, 9, 10]],
     });
     let s = must(s0, 'p0', ask('p0', 'highest'));

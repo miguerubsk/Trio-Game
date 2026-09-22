@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import type { Action, End, PlayerId, PlayerView, RoomView, Value } from '@trio/shared';
 import { winnerText, type Names } from '../text';
-import { Progress, TrioFan, valueClass } from '../ui/Card';
+import { Progress, SpicyContext, TrioFan, valueClass } from '../ui/Card';
 import { useGameSounds } from '../sound/useGameSounds';
 import { Avatar, Logo } from '../ui/Icons';
 import { SoundToggle } from '../ui/SoundToggle';
@@ -49,7 +49,7 @@ export function Table({
   const orderOf = useRevealOrder(view);
   useGameSounds(view);
   // Por equipos los tríos cuentan por pareja: la meta se ve en el marcador.
-  const target = view.mode === 'teams' ? undefined : view.targetTrios;
+  const target = view.teams ? undefined : view.targetTrios;
 
   // Un aviso discreto al llegar el turno: se va a jugar mirando el móvil de reojo.
   useEffect(() => {
@@ -86,102 +86,105 @@ export function Table({
   };
 
   return (
-    <div className="table">
-      <header className="table__head">
-        <span className="brand">
-          <Logo /> Sala <span className="code-chip">{room.code}</span>
-        </span>
-        <div className="table__actions">
-          <SoundToggle />
-          {isHost && view.phase !== 'finished' && (
+    // En picante cada carta enseña en sus esquinas con qué tríos conecta.
+    <SpicyContext.Provider value={view.mode === 'spicy'}>
+      <div className="table">
+        <header className="table__head">
+          <span className="brand">
+            <Logo /> Sala <span className="code-chip">{room.code}</span>
+          </span>
+          <div className="table__actions">
+            <SoundToggle />
+            {isHost && view.phase !== 'finished' && (
+              <button
+                type="button"
+                className="link"
+                onClick={() => window.confirm('¿Terminar la partida y volver a la sala?') && onBackToLobby()}
+              >
+                Terminar partida
+              </button>
+            )}
             <button
               type="button"
               className="link"
-              onClick={() => window.confirm('¿Terminar la partida y volver a la sala?') && onBackToLobby()}
+              onClick={() => window.confirm('¿Salir de la sala?') && onLeave()}
             >
-              Terminar partida
+              Salir
             </button>
-          )}
-          <button
-            type="button"
-            className="link"
-            onClick={() => window.confirm('¿Salir de la sala?') && onLeave()}
-          >
-            Salir
-          </button>
+          </div>
+        </header>
+
+        <TeamScore view={view} />
+
+        <div className="table__players">
+          {others.map((player) => (
+            <PlayerRow
+              key={player.id}
+              player={player}
+              member={memberOf(player.id)}
+              isCurrent={player.id === view.currentPlayerId}
+              isPartner={myTeam !== null && player.team === myTeam}
+              target={target}
+              markAt={(index) => handMark(view, player.id, index)}
+              orderAt={(index) => orderOf({ kind: 'hand', playerId: player.id, index })}
+              onAsk={askTo(player.id)}
+              onKick={kickHandler(player.id, player.name)}
+              onSubstitute={substituteHandler(player.id)}
+            />
+          ))}
         </div>
-      </header>
 
-      <TeamScore view={view} />
+        <Center
+          slots={view.center}
+          choosable={reveal?.centerSlots ?? []}
+          markAt={(slot) => centerMark(view, slot)}
+          orderAt={(slot) => orderOf({ kind: 'center', slot })}
+          onReveal={(slot) => onAction({ type: 'REVEAL_CENTER', slot })}
+        />
 
-      <div className="table__players">
-        {others.map((player) => (
-          <PlayerRow
-            key={player.id}
-            player={player}
-            member={memberOf(player.id)}
-            isCurrent={player.id === view.currentPlayerId}
-            isPartner={myTeam !== null && player.team === myTeam}
-            target={target}
-            markAt={(index) => handMark(view, player.id, index)}
-            orderAt={(index) => orderOf({ kind: 'hand', playerId: player.id, index })}
-            onAsk={askTo(player.id)}
-            onKick={kickHandler(player.id, player.name)}
-            onSubstitute={substituteHandler(player.id)}
-          />
-        ))}
-      </div>
+        {/*
+          El turno y el registro: en escritorio forman el lateral; en el móvil el
+          lateral no existe y siguen en el orden de siempre (styles.css).
+        */}
+        <aside className="table__side">
+          {/* Al terminar manda el cartel del final: la barra sobraría debajo. */}
+          {view.phase !== 'finished' && (
+            <StatusBar
+              view={view}
+              names={names}
+              autoActionAt={room.autoActionAt}
+              onConfirm={() => onAction({ type: 'CONFIRM_RETURN' })}
+            />
+          )}
 
-      <Center
-        slots={view.center}
-        choosable={reveal?.centerSlots ?? []}
-        markAt={(slot) => centerMark(view, slot)}
-        orderAt={(slot) => orderOf({ kind: 'center', slot })}
-        onReveal={(slot) => onAction({ type: 'REVEAL_CENTER', slot })}
-      />
+          {view.phase === 'teamSwap' && (
+            <TeamSwap view={view} names={names} onPass={() => onAction({ type: 'SWAP_PASS' })} />
+          )}
 
-      {/*
-        El turno y el registro: en escritorio forman el lateral; en el móvil el
-        lateral no existe y siguen en el orden de siempre (styles.css).
-      */}
-      <aside className="table__side">
-        {/* Al terminar manda el cartel del final: la barra sobraría debajo. */}
-        {view.phase !== 'finished' && (
-          <StatusBar
+          <LogSheet log={view.log} names={names} pinned={wide} />
+        </aside>
+
+        <MyHand
+          view={view}
+          onAsk={askTo(view.me)}
+          onChoose={
+            view.legal.swap ? (handIndex) => onAction({ type: 'SWAP_CHOOSE', handIndex }) : null
+          }
+          received={received}
+          orderAt={(index) => orderOf({ kind: 'hand', playerId: view.me, index })}
+        />
+
+        {view.phase === 'finished' && (
+          <Finished
             view={view}
             names={names}
-            autoActionAt={room.autoActionAt}
-            onConfirm={() => onAction({ type: 'CONFIRM_RETURN' })}
+            isHost={isHost}
+            hostName={memberOf(room.hostId)?.name ?? 'el anfitrión'}
+            onBackToLobby={onBackToLobby}
           />
         )}
-
-        {view.phase === 'teamSwap' && (
-          <TeamSwap view={view} names={names} onPass={() => onAction({ type: 'SWAP_PASS' })} />
-        )}
-
-        <LogSheet log={view.log} names={names} pinned={wide} />
-      </aside>
-
-      <MyHand
-        view={view}
-        onAsk={askTo(view.me)}
-        onChoose={
-          view.legal.swap ? (handIndex) => onAction({ type: 'SWAP_CHOOSE', handIndex }) : null
-        }
-        received={received}
-        orderAt={(index) => orderOf({ kind: 'hand', playerId: view.me, index })}
-      />
-
-      {view.phase === 'finished' && (
-        <Finished
-          view={view}
-          names={names}
-          isHost={isHost}
-          hostName={memberOf(room.hostId)?.name ?? 'el anfitrión'}
-          onBackToLobby={onBackToLobby}
-        />
-      )}
-    </div>
+      </div>
+    </SpicyContext.Provider>
   );
 }
 
@@ -258,7 +261,7 @@ function Confetti() {
 
 /** El recuento final: por equipos si los hay, y si no, jugador a jugador. */
 function scoreboard(view: PlayerView): { who: string; ids: PlayerId[]; trios: Value[] }[] {
-  if (view.mode !== 'teams') {
+  if (!view.teams) {
     return view.players.map((p) => ({ who: p.name, ids: [p.id], trios: p.trios }));
   }
   return teamsOf(view).map(({ team, members }) => ({

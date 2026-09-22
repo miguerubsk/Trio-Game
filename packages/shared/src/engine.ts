@@ -1,4 +1,4 @@
-import { SEVENS, type Value } from './cards';
+import { connected, SEVENS, type Value } from './cards';
 import {
   clone,
   currentPlayer,
@@ -9,7 +9,7 @@ import {
   teamIndexes,
   teamMembers,
   triosOf,
-  triosOfSide,
+  trioValuesOfSide,
   valueOf,
 } from './helpers';
 import { openSwap, respondSwap } from './swap';
@@ -189,10 +189,12 @@ function settle(s: GameState, outcome: Outcome): void {
   s.outcome = outcome;
 }
 
+/** Se mira con el trío recién formado, antes de anotarlo. */
 function winReason(s: GameState, actor: PlayerId, value: Value): Winner['reason'] | null {
   if (value === SEVENS) return 'sevens';
-  if (triosOfSide(s, actor) + 1 >= s.config.targetTrios) return 'trios';
-  return null;
+  const won = trioValuesOfSide(s, actor);
+  if (s.config.mode === 'spicy') return won.some((v) => connected(v, value)) ? 'connected' : null;
+  return won.length + 1 >= s.config.targetTrios ? 'trios' : null;
 }
 
 function confirmReturn(s: GameState, actor: PlayerId, events: GameEvent[]): ErrorCode | null {
@@ -210,7 +212,7 @@ function confirmReturn(s: GameState, actor: PlayerId, events: GameEvent[]): Erro
 
   // Tanto tras un trío como tras un fallo, el turno pasa al siguiente jugador.
   advanceSeat(s);
-  if (wasTrio && s.config.mode === 'teams') {
+  if (wasTrio && s.config.teams) {
     const actorTeam = playerById(s, actor).team;
     openSwap(s, 'trio', teamIndexes(s).filter((t) => t !== actorTeam), events);
   } else {
@@ -238,7 +240,7 @@ function collectTrio(s: GameState, actor: PlayerId, events: GameEvent[]): void {
 }
 
 function finish(s: GameState, actor: PlayerId, reason: Winner['reason'], events: GameEvent[]): void {
-  const team = s.config.mode === 'teams' ? playerById(s, actor).team : null;
+  const team = s.config.teams ? playerById(s, actor).team : null;
   const winner: Winner = {
     playerIds: team === null ? [actor] : teamMembers(s, team),
     team,
