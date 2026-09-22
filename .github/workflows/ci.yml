@@ -1,12 +1,9 @@
 name: CI
 
 on:
-  # On master and on tags the publish workflow calls this one, so the same
-  # checks don't run twice. A push filtered only by branches still fires on
-  # tags, hence the tags-ignore.
-  push:
-    branches-ignore: [master]
-    tags-ignore: ['**']
+  # Every change reaches master through a pull request, and that's where the
+  # checks run: also listening to branch pushes ran them twice per commit. On
+  # master and on tags the publish workflow calls this one.
   pull_request:
   workflow_call:
 

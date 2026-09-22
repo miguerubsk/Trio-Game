@@ -115,36 +115,24 @@ Two things worth knowing before touching anything:
 
 ## Releases
 
-Every push to `master` runs the checks and publishes the image to Docker Hub as
-`miguerubsk/trio-game:master`, plus the commit sha. A **`v*` tag** publishes `latest` and the version
-number as well, and creates a GitHub release:
+Whatever lands on `master` is published to Docker Hub straight away, as
+`miguerubsk/trio-game:master` and under its commit. Versions are published as `latest` and by number,
+and each one also gets a [GitHub release](https://github.com/miguerubsk/Trio-Game/releases).
+
+Only tags I have signed become releases: the build checks the signature before building anything and
+stops if it isn't mine.
+
+Each release carries the image for every platform, ready for `docker load`, a tarball that runs on
+plain Node without Docker, and `SHA512SUMS` signed with my key, the same one that signs the commits in
+this repository. To check what you downloaded:
 
 ```bash
-npm version 0.2.0 --no-git-tag-version
-git commit -am "Version 0.2.0" && git push
-git tag -s -m "Trio 0.2.0" v0.2.0 && git push --tags
-```
-
-The workflow stops on purpose unless two things hold: the tag matches the version in `package.json`,
-and the tag is **signed** with the project key (it runs `git verify-tag` before building anything).
-A release exists because its owner tagged it, not because someone with write access pushed a tag.
-
-Each release carries the image for every platform ready for `docker load`, a tarball that runs on
-plain Node without Docker, `SHA512SUMS`, its PGP signature and the public key. To check what you
-downloaded:
-
-```bash
-gpg --recv-keys 683C47647FCB2433BBF84CE4CEDF03871B2B9517
+curl -s https://github.com/miguerubsk.gpg | gpg --import
 gpg --verify SHA512SUMS.asc SHA512SUMS
 sha512sum -c SHA512SUMS
 ```
 
-It's the same key that signs the commits in this repository, so if you already trust those there's
-nothing new to trust.
-
-Building a release needs four repository secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (an
-access token, not the password) to publish the image, and `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE` to
-sign the checksums.
+The signature should come from the key `683C 4764 7FCB 2433 BBF8  4CE4 CEDF 0387 1B2B 9517`.
 
 ## Known limits
 
@@ -187,3 +175,7 @@ game it recreates is not mine, which is what the credits below are about.
 non-commercial version for playing with friends, built without their artwork or their visual
 identity: the cards here are drawn from scratch. If you enjoy it, buy the real thing, which is better
 around a table.
+
+The numbers on the cards are set in [Fredoka](https://github.com/hafontia/Fredoka-One), by The
+Fredoka Project Authors, under the SIL Open Font License 1.1. Its licence ships with the client as
+`LICENSE-fredoka.txt`.

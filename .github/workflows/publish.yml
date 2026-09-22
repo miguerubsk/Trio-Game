@@ -3,6 +3,13 @@ name: Publish
 # Every push to master publishes the image as `master` and with the commit sha.
 # Pushing a v* tag publishes `latest` and the version too, and creates the
 # GitHub release with the signed images.
+#
+# Cutting a release: bump the version in package.json through a pull request,
+# then, on the merged master, `git tag -s -m "Trio X.Y.Z" vX.Y.Z` and push it.
+# The tag must match package.json and be signed with the project key, or the
+# run stops before publishing anything. Only the repository owner can create
+# v* tags (tag ruleset), and the secrets live in the `dockerhub` and `signing`
+# environments described on each job below.
 
 on:
   push:
@@ -23,6 +30,9 @@ jobs:
   signature:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
+    # The key lives in an environment that only v* tags can reach, and only the
+    # repository owner can create those.
+    environment: signing
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,6 +73,8 @@ jobs:
       && needs.checks.result == 'success'
       && (needs.signature.result == 'success' || github.ref_type != 'tag')
     runs-on: ubuntu-latest
+    # Docker Hub credentials, reachable from master and v* tags only.
+    environment: dockerhub
     outputs:
       version: ${{ steps.version.outputs.version }}
       digest: ${{ steps.build.outputs.digest }}
@@ -120,6 +132,10 @@ jobs:
     needs: image
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
+    # A job gets a single environment, so `signing` also holds a read-only
+    # Docker Hub token: pulling the images back anonymously would run into
+    # Docker Hub's per-IP limits, which runners share.
+    environment: signing
     steps:
       - uses: actions/checkout@v4
 
