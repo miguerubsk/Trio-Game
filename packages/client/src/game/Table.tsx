@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import type { Action, End, PlayerId, PlayerView, RoomView, Value } from '@trio/shared';
 import { winnerText, type Names } from '../text';
-import { Progress, SpicyContext, TrioFan, valueClass } from '../ui/Card';
+import { Progress, TrioFan, valueClass } from '../ui/Card';
 import { useGameSounds } from '../sound/useGameSounds';
 import { Avatar, Logo } from '../ui/Icons';
 import { SoundToggle } from '../ui/SoundToggle';
@@ -86,105 +86,102 @@ export function Table({
   };
 
   return (
-    // En picante cada carta enseña en sus esquinas con qué tríos conecta.
-    <SpicyContext.Provider value={view.mode === 'spicy'}>
-      <div className="table">
-        <header className="table__head">
-          <span className="brand">
-            <Logo /> Sala <span className="code-chip">{room.code}</span>
-          </span>
-          <div className="table__actions">
-            <SoundToggle />
-            {isHost && view.phase !== 'finished' && (
-              <button
-                type="button"
-                className="link"
-                onClick={() => window.confirm('¿Terminar la partida y volver a la sala?') && onBackToLobby()}
-              >
-                Terminar partida
-              </button>
-            )}
+    <div className="table">
+      <header className="table__head">
+        <span className="brand">
+          <Logo /> Sala <span className="code-chip">{room.code}</span>
+        </span>
+        <div className="table__actions">
+          <SoundToggle />
+          {isHost && view.phase !== 'finished' && (
             <button
               type="button"
               className="link"
-              onClick={() => window.confirm('¿Salir de la sala?') && onLeave()}
+              onClick={() => window.confirm('¿Terminar la partida y volver a la sala?') && onBackToLobby()}
             >
-              Salir
+              Terminar partida
             </button>
-          </div>
-        </header>
-
-        <TeamScore view={view} />
-
-        <div className="table__players">
-          {others.map((player) => (
-            <PlayerRow
-              key={player.id}
-              player={player}
-              member={memberOf(player.id)}
-              isCurrent={player.id === view.currentPlayerId}
-              isPartner={myTeam !== null && player.team === myTeam}
-              target={target}
-              markAt={(index) => handMark(view, player.id, index)}
-              orderAt={(index) => orderOf({ kind: 'hand', playerId: player.id, index })}
-              onAsk={askTo(player.id)}
-              onKick={kickHandler(player.id, player.name)}
-              onSubstitute={substituteHandler(player.id)}
-            />
-          ))}
+          )}
+          <button
+            type="button"
+            className="link"
+            onClick={() => window.confirm('¿Salir de la sala?') && onLeave()}
+          >
+            Salir
+          </button>
         </div>
+      </header>
 
-        <Center
-          slots={view.center}
-          choosable={reveal?.centerSlots ?? []}
-          markAt={(slot) => centerMark(view, slot)}
-          orderAt={(slot) => orderOf({ kind: 'center', slot })}
-          onReveal={(slot) => onAction({ type: 'REVEAL_CENTER', slot })}
-        />
+      <TeamScore view={view} />
 
-        {/*
-          El turno y el registro: en escritorio forman el lateral; en el móvil el
-          lateral no existe y siguen en el orden de siempre (styles.css).
-        */}
-        <aside className="table__side">
-          {/* Al terminar manda el cartel del final: la barra sobraría debajo. */}
-          {view.phase !== 'finished' && (
-            <StatusBar
-              view={view}
-              names={names}
-              autoActionAt={room.autoActionAt}
-              onConfirm={() => onAction({ type: 'CONFIRM_RETURN' })}
-            />
-          )}
+      <div className="table__players">
+        {others.map((player) => (
+          <PlayerRow
+            key={player.id}
+            player={player}
+            member={memberOf(player.id)}
+            isCurrent={player.id === view.currentPlayerId}
+            isPartner={myTeam !== null && player.team === myTeam}
+            target={target}
+            markAt={(index) => handMark(view, player.id, index)}
+            orderAt={(index) => orderOf({ kind: 'hand', playerId: player.id, index })}
+            onAsk={askTo(player.id)}
+            onKick={kickHandler(player.id, player.name)}
+            onSubstitute={substituteHandler(player.id)}
+          />
+        ))}
+      </div>
 
-          {view.phase === 'teamSwap' && (
-            <TeamSwap view={view} names={names} onPass={() => onAction({ type: 'SWAP_PASS' })} />
-          )}
+      <Center
+        slots={view.center}
+        choosable={reveal?.centerSlots ?? []}
+        markAt={(slot) => centerMark(view, slot)}
+        orderAt={(slot) => orderOf({ kind: 'center', slot })}
+        onReveal={(slot) => onAction({ type: 'REVEAL_CENTER', slot })}
+      />
 
-          <LogSheet log={view.log} names={names} pinned={wide} />
-        </aside>
-
-        <MyHand
-          view={view}
-          onAsk={askTo(view.me)}
-          onChoose={
-            view.legal.swap ? (handIndex) => onAction({ type: 'SWAP_CHOOSE', handIndex }) : null
-          }
-          received={received}
-          orderAt={(index) => orderOf({ kind: 'hand', playerId: view.me, index })}
-        />
-
-        {view.phase === 'finished' && (
-          <Finished
+      {/*
+        El turno y el registro: en escritorio forman el lateral; en el móvil el
+        lateral no existe y siguen en el orden de siempre (styles.css).
+      */}
+      <aside className="table__side">
+        {/* Al terminar manda el cartel del final: la barra sobraría debajo. */}
+        {view.phase !== 'finished' && (
+          <StatusBar
             view={view}
             names={names}
-            isHost={isHost}
-            hostName={memberOf(room.hostId)?.name ?? 'el anfitrión'}
-            onBackToLobby={onBackToLobby}
+            autoActionAt={room.autoActionAt}
+            onConfirm={() => onAction({ type: 'CONFIRM_RETURN' })}
           />
         )}
-      </div>
-    </SpicyContext.Provider>
+
+        {view.phase === 'teamSwap' && (
+          <TeamSwap view={view} names={names} onPass={() => onAction({ type: 'SWAP_PASS' })} />
+        )}
+
+        <LogSheet log={view.log} names={names} pinned={wide} />
+      </aside>
+
+      <MyHand
+        view={view}
+        onAsk={askTo(view.me)}
+        onChoose={
+          view.legal.swap ? (handIndex) => onAction({ type: 'SWAP_CHOOSE', handIndex }) : null
+        }
+        received={received}
+        orderAt={(index) => orderOf({ kind: 'hand', playerId: view.me, index })}
+      />
+
+      {view.phase === 'finished' && (
+        <Finished
+          view={view}
+          names={names}
+          isHost={isHost}
+          hostName={memberOf(room.hostId)?.name ?? 'el anfitrión'}
+          onBackToLobby={onBackToLobby}
+        />
+      )}
+    </div>
   );
 }
 

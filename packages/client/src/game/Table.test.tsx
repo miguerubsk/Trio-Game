@@ -123,9 +123,9 @@ describe('mesa', () => {
         legal: { reveal: null, confirm: true, swap: null },
       }),
     );
-    expect(screen.getByLabelText('Hueco 1, carta 4, a la vista de todos, forma trío')).toBeTruthy();
-    expect(screen.getByLabelText('Hueco 2, carta 4, a la vista de todos, forma trío')).toBeTruthy();
-    expect(rowOf('Bea').getByLabelText('Carta 1 de Bea, carta 4, a la vista de todos, forma trío')).toBeTruthy();
+    expect(screen.getByLabelText('Hueco 1, carta 4, a la vista de todos, forma trío, conecta con 3 y 11')).toBeTruthy();
+    expect(screen.getByLabelText('Hueco 2, carta 4, a la vista de todos, forma trío, conecta con 3 y 11')).toBeTruthy();
+    expect(rowOf('Bea').getByLabelText('Carta 1 de Bea, carta 4, a la vista de todos, forma trío, conecta con 3 y 11')).toBeTruthy();
     expect(container.querySelectorAll('.status .trail .card.is-trio')).toHaveLength(3);
     expect(screen.getByText('¡Trío de 4!')).toBeTruthy();
   });
@@ -148,8 +148,8 @@ describe('mesa', () => {
         legal: { reveal: null, confirm: true, swap: null },
       }),
     );
-    expect(screen.getByLabelText('Hueco 1, carta 9, a la vista de todos')).toBeTruthy();
-    expect(rowOf('Bea').getByLabelText('Carta 1 de Bea, carta 3, a la vista de todos, no coincide')).toBeTruthy();
+    expect(screen.getByLabelText('Hueco 1, carta 9, a la vista de todos, conecta con 2')).toBeTruthy();
+    expect(rowOf('Bea').getByLabelText('Carta 1 de Bea, carta 3, a la vista de todos, no coincide, conecta con 4 y 10')).toBeTruthy();
     expect(container.querySelectorAll('.card.is-trio')).toHaveLength(0);
   });
 
@@ -318,7 +318,7 @@ describe('mesa', () => {
   });
 });
 
-describe('modo picante en la mesa', () => {
+describe('las esquinas de las cartas', () => {
   const corners = (card: HTMLElement) =>
     [...card.querySelectorAll('.card__corner')].map((c) => ({
       side: c.classList.contains('card__corner--left') ? 'izquierda' : 'derecha',
@@ -326,15 +326,19 @@ describe('modo picante en la mesa', () => {
       colour: [...c.classList].find((k) => /^v\d+$/.test(k)),
     }));
 
-  const spicyTable = () =>
+  const table = (patch: Partial<PlayerView> = {}) =>
     playerView({
-      mode: 'spicy',
-      targetTrios: 2,
-      center: [{ state: 'up', value: 2 }, { state: 'up', value: 6 }, { state: 'down' }],
+      center: [
+        { state: 'up', value: 2 },
+        { state: 'up', value: 6 },
+        { state: 'up', value: 7 },
+        { state: 'down' },
+      ],
+      ...patch,
     });
 
   it('cada carta boca arriba lleva sus conexiones, una en cada esquina de arriba y en su color', () => {
-    show(spicyTable());
+    show(table());
     expect(corners(screen.getByLabelText(/^Hueco 1, carta 2/))).toEqual([
       { side: 'izquierda', value: '5', colour: 'v5' },
       { side: 'derecha', value: '9', colour: 'v9' },
@@ -342,24 +346,29 @@ describe('modo picante en la mesa', () => {
   });
 
   it('con una sola conexión, va a la izquierda', () => {
-    show(spicyTable());
+    show(table());
     expect(corners(screen.getByLabelText(/^Hueco 2, carta 6/))).toEqual([
       { side: 'izquierda', value: '1', colour: 'v1' },
     ]);
   });
 
+  it('el 7 no conecta con nada y no lleva ninguna', () => {
+    show(table());
+    expect(corners(screen.getByLabelText(/^Hueco 3, carta 7/))).toEqual([]);
+  });
+
   it('se anuncian también para quien no ve la carta', () => {
-    show(spicyTable());
+    show(table());
     expect(screen.getByLabelText(/^Hueco 1, carta 2, .*conecta con 5 y 9/)).toBeTruthy();
   });
 
   it('una carta boca abajo no lleva esquinas: delatarían el número', () => {
-    show(spicyTable());
-    expect(corners(screen.getByLabelText(/^Hueco 3, carta boca abajo/))).toEqual([]);
+    show(table());
+    expect(corners(screen.getByLabelText(/^Hueco 4, carta boca abajo/))).toEqual([]);
   });
 
-  it('en sencillo las esquinas no se pintan', () => {
-    const { container } = show(playerView({ center: [{ state: 'up', value: 2 }, { state: 'down' }] }));
-    expect(container.querySelectorAll('.card__corner')).toHaveLength(0);
+  it('se ven en los dos modos, como en la baraja de verdad', () => {
+    show(table({ mode: 'spicy', targetTrios: 2 }));
+    expect(corners(screen.getByLabelText(/^Hueco 1, carta 2/))).toHaveLength(2);
   });
 });

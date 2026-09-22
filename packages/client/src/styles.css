@@ -490,28 +490,10 @@ h3 {
   letter-spacing: -0.05em;
 }
 
-.card__front::after {
-  content: attr(data-value);
-  position: absolute;
-  right: calc(var(--w) * 0.13);
-  bottom: calc(var(--w) * 0.11);
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: calc(var(--h) * 0.14);
-  line-height: 1;
-  transform: rotate(180deg);
-  opacity: 0.8;
-}
-
-.card--xs .card__front::after,
-.card--sm .card__front::after {
-  display: none;
-}
-
 /*
- * Modo picante: con qué tríos conecta la carta, un número en cada esquina de
- * arriba y en su propio color. Mismo tamaño y margen que el número del pie,
- * en espejo, para que la carta siga pareciendo de baraja.
+ * Con qué tríos conecta la carta, como en la baraja de verdad: un número en
+ * cada esquina de arriba, cada uno en su propio color. Es el hueco que esta
+ * carta guardaba para el modo picante; el 7 no conecta con nada y va limpio.
  */
 .card__corner {
   position: absolute;
@@ -919,6 +901,21 @@ h3 {
  */
 .hand > .card + .card {
   margin-left: clamp(calc(var(--w) * -0.35), calc((100% - var(--n) * var(--w)) / (var(--n) - 1)), 6px);
+}
+
+/*
+ * Montadas, la carta de al lado tapa la esquina de arriba a la derecha: esa
+ * conexión se corre justo lo que tapa, con la misma cuenta que el margen de
+ * arriba. La mano es el contenedor, así que `100cqw` es su ancho.
+ */
+.hand {
+  container-type: inline-size;
+}
+
+.hand > .card:not(:last-child) .card__corner--right {
+  right: calc(
+    var(--w) * 0.13 + clamp(0px, (var(--n) * var(--w) - 100cqw) / (var(--n) - 1), var(--w) * 0.35)
+  );
 }
 
 .ask {
@@ -1848,7 +1845,6 @@ h3 {
     --h: 64px;
   }
 
-  .table__players .card--sm .card__front::after,
   .table__players .card--sm .card__corner {
     display: block;
   }

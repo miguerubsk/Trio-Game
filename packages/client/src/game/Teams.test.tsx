@@ -124,7 +124,7 @@ describe('intercambio con el compañero', () => {
     expect(screen.getByText('Tu compañero te ha dado un 5.')).toBeTruthy();
     const fresh = container.querySelectorAll('.myhand .card.is-fresh');
     expect(fresh).toHaveLength(1);
-    expect(fresh[0]?.textContent).toBe('5');
+    expect(fresh[0]?.querySelector('.card__value')?.textContent).toBe('5');
   });
 });
 
