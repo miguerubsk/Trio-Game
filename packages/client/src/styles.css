@@ -748,7 +748,8 @@ h3 {
   display: contents;
 }
 
-.table .log {
+.table .log,
+.table .rules-row {
   order: 1;
 }
 
@@ -772,7 +773,7 @@ h3 {
   gap: 8px;
 }
 
-/* Poner y quitar el sonido. */
+/* Los botones de icono de las cabeceras: el sonido y las reglas. */
 .sound {
   display: grid;
   place-items: center;
@@ -1547,6 +1548,169 @@ h3 {
 
 .members li .link {
   margin-left: auto;
+}
+
+/* ── Reglas ─────────────────────────────────────────────────────────────── */
+
+/* En la mesa del móvil, al final y con la misma pinta que el registro. */
+.rules-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color 160ms ease;
+}
+
+.rules-row:hover {
+  color: var(--text);
+}
+
+/* Una hoja por encima de todo, que se lee de arriba abajo. */
+.rules {
+  width: min(640px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 45%);
+}
+
+.rules[open] {
+  animation: rules-in var(--ui) var(--ease-ui);
+}
+
+.rules::backdrop {
+  background: rgb(5 10 16 / 62%);
+}
+
+@keyframes rules-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.rules__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.rules__body {
+  display: grid;
+  gap: 20px;
+  padding: 16px 16px 24px;
+  line-height: 1.5;
+}
+
+.rules__body section {
+  display: grid;
+  gap: 8px;
+}
+
+.rules__body p,
+.rules__body ul {
+  margin: 0;
+}
+
+.rules__body ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 1.2em;
+}
+
+.rules__body h4 {
+  margin: 6px 0 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.rules__now {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: 12px;
+  background: var(--bg-soft);
+}
+
+.rules__deal {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.rules__deal th,
+.rules__deal td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+
+.rules__deal thead th {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.rules__example {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Las conexiones, en papel como las cartas: sus colores están pensados para él. */
+.rules__body .pairs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  color: #8b94a0;
+  font-family: var(--display);
+  font-weight: 600;
+}
+
+.pair__n {
+  color: var(--c);
+}
+
+.rules__credits {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 /* ── Cómo entra la interfaz ─────────────────────────────────────────────── */

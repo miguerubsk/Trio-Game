@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { NAME_MAX_LENGTH, ROOM_CODE_LENGTH } from '@trio/shared';
 import { loadName, saveName } from '../net/storage';
 import { Card } from '../ui/Card';
+import { RulesButton } from '../ui/Rules';
 
 interface Props {
   /** Código que venía en el enlace, si lo había. */
@@ -48,6 +49,7 @@ export function Home({ initialCode, onCreate, onJoin }: Props) {
         </div>
         <h1 className="home__title">Trio</h1>
         <p className="home__claim">Juego de memoria para 3 a 6 personas. Cada uno desde su móvil.</p>
+        <RulesButton variant="link" />
       </div>
 
       <div className="home__forms">

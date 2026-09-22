@@ -4,6 +4,7 @@ import { winnerText, type Names } from '../text';
 import { Progress, TrioFan, valueClass } from '../ui/Card';
 import { useGameSounds } from '../sound/useGameSounds';
 import { Avatar, Logo } from '../ui/Icons';
+import { RulesButton } from '../ui/Rules';
 import { SoundToggle } from '../ui/SoundToggle';
 import { useWide } from '../ui/useWide';
 import { Center } from './Center';
@@ -92,6 +93,7 @@ export function Table({
           <Logo /> Sala <span className="code-chip">{room.code}</span>
         </span>
         <div className="table__actions">
+          {wide && <RulesButton mode={view.mode} teams={view.teams} />}
           <SoundToggle />
           {isHost && view.phase !== 'finished' && (
             <button
@@ -160,6 +162,7 @@ export function Table({
         )}
 
         <LogSheet log={view.log} names={names} pinned={wide} />
+        {!wide && <RulesButton mode={view.mode} teams={view.teams} variant="row" />}
       </aside>
 
       <MyHand
